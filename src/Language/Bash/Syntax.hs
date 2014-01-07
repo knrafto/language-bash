@@ -39,7 +39,7 @@ data Command
 -- | A redirection.
 data Redir
     = Redir (Maybe Word) String Word
-    | Heredoc Word Word
+    | Heredoc String Bool String String
     deriving (Eq, Read, Show)
 
 -- | A compound list of statements, terminated by @&@ or @;@.

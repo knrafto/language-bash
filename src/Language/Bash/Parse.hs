@@ -93,13 +93,15 @@ redir = normalRedir
     normalRedir = Redir <$> redirWord <*> redirOp <*> anyWord
 
     heredocRedir = do
-        strip <- heredocOp
-        delim <- anyWord
-        h <- heredoc strip (I.unquote delim)
-        return $ Heredoc delim h
+        (strip, op) <- heredocOp
+        w <- anyWord
+        let delim  = I.unquote w
+            quoted = delim /= w
+        h <- heredoc strip delim
+        return $ Heredoc op quoted delim h
 
-    heredocOp = False <$ operator "<<"
-            </> True  <$ operator "<<-"
+    heredocOp = (,) False <$> operator "<<"
+            </> (,) True  <$> operator "<<-"
 
 -- | Skip a list of redirections.
 redirList :: Parser [Redir]
