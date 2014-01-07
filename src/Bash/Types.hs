@@ -4,7 +4,6 @@ module Bash.Types
       Command(..)
       -- * Redirections
     , Redir(..)
-    , RedirTarget
       -- * Lists
     , List(..)
     , AndOr(..)
@@ -35,13 +34,7 @@ data Command
     deriving (Eq, Read, Show)
 
 -- | A redirection.
-data Redir = Redir (Maybe RedirTarget) String Word
-    deriving (Eq, Read, Show)
-
--- | A redirection target.
-data RedirTarget
-    = IONumber Int
-    | IOVar String
+data Redir = Redir (Maybe Word) String Word
     deriving (Eq, Read, Show)
 
 -- | A compound list of statements, terminated by @&@ or @;@.
@@ -57,7 +50,7 @@ data AndOr
 
 -- | A (possibly timed or inverted) pipeline, linked with @|@ or @|&@.
 data Pipeline
-    = Time [Word] Pipeline
+    = Time Bool Pipeline
     | Invert Pipeline
     | Pipeline [Command]
     deriving (Eq, Read, Show)
@@ -107,7 +100,7 @@ data ShellCommand
     | ArithFor String List
     | Select Word [Word] List
     | Case Word [CaseClause]
-    | If List List List
+    | If [(List, List)] (Maybe List)
     | Until List List
     | While List List
     deriving (Eq, Read, Show)
