@@ -18,10 +18,13 @@ import qualified Bash.Parse.Internal    as I
 import           Bash.Parse.Packrat
 import           Bash.Types
 
+-- | User state.
 data U = U { postHeredoc :: Maybe (State D U) }
 
+-- | Bash parser type.
 type Parser = ParsecT D U Identity
 
+-- | Parse a script or input line into a (possibly empty) list of commands.
 parse :: SourceName -> String -> Either ParseError List
 parse source = runParser script (U Nothing) source . pack (initialPos source)
 
