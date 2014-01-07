@@ -116,11 +116,12 @@ data ShellCommand
 data CaseClause = CaseClause [Word] List CaseTerm
     deriving (Eq, Read, Show)
 
--- | A case clause terminator. A clause can either 'Break' out of the case
--- statement with @;;@, 'FallThrough' to the next clause with @;&@, or
--- 'Continue' by testing the pattern for the next clause with @;;&@.
+-- | A case clause terminator.
 data CaseTerm
+    -- | @;;@
     = Break
+    -- | @;&@
     | FallThrough
+    -- | @;;&@
     | Continue
     deriving (Eq, Read, Show)
