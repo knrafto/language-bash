@@ -302,16 +302,22 @@ functionDef = functionDef1
           </> functionDef2
   where
     functionDef1 = FunctionDef <$ word "function" <*> anyWord
-               <*  optional functionParens <*> functionBody
+               <*  optional functionParens <* newlineList <*> functionBody
                <*> redirList
 
     functionDef2 = FunctionDef <$> unreservedWord
-               <*  functionParens <*> functionBody
+               <*  functionParens <* newlineList <*> functionBody
                <*> redirList
 
     functionParens = operator "(" <* operator ")"
 
-    functionBody = newlineList *> shellCommand
+    functionBody = unwrap <$> group
+               </> singleton <$> shellCommand
+
+    unwrap (Group l) = l
+    unwrap _         = List []
+
+    singleton c = List [Last (Pipeline [Shell c []])]
 
 -------------------------------------------------------------------------------
 -- Commands
