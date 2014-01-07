@@ -7,7 +7,7 @@
   #-}
 -- | Memoized packrat parsing, inspired by Edward Kmett\'s
 -- \"A Parsec Full of Rats\".
-module Bash.Parse.Packrat
+module Language.Bash.Parse.Packrat
     ( -- * Packrat parsing
       (</>)
     , D
@@ -36,11 +36,11 @@ import           Control.Monad.Fix
 import           Data.Char
 import           Data.Functor.Identity
 import           Text.Parsec.Char
-import           Text.Parsec.Prim      hiding ((<|>), token)
+import           Text.Parsec.Prim             hiding ((<|>), token)
 import           Text.Parsec.Pos
 
-import qualified Bash.Parse.Internal   as I
-import           Bash.Types
+import qualified Language.Bash.Parse.Internal as I
+import           Language.Bash.Syntax
 
 infixl 3 </>
 

@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- | Low-level parsers.
-module Bash.Parse.Internal
+module Language.Bash.Parse.Internal
     ( skipSpace
     , word
     , word1
@@ -14,13 +14,13 @@ import           Control.Applicative
 import           Control.Monad
 import           Data.Monoid
 import           Text.Parsec.Char
-import           Text.Parsec.Combinator hiding (optional)
-import           Text.Parsec.Prim       hiding ((<|>), many)
-import           Text.Parsec.String     ()
+import           Text.Parsec.Combinator      hiding (optional)
+import           Text.Parsec.Prim            hiding ((<|>), many)
+import           Text.Parsec.String          ()
 
-import           Bash.Parse.Builder     (Builder, (<+>))
-import qualified Bash.Parse.Builder     as B
-import           Bash.Types
+import           Language.Bash.Parse.Builder (Builder, (<+>))
+import qualified Language.Bash.Parse.Builder as B
+import           Language.Bash.Syntax
 
 -- | @surroundBy p sep@ parses zero or more occurences of @p@, beginning,
 -- ending, and separated by @sep@.

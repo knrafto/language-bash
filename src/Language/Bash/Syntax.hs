@@ -1,5 +1,5 @@
 -- | Shell script types.
-module Bash.Types
+module Language.Bash.Syntax
     ( -- * Words
       Word
       -- * Commands

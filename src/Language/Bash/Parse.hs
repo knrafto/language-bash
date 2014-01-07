@@ -1,22 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | Bash input parsing.
-module Bash.Parse
+module Language.Bash.Parse
     ( parse
     ) where
 
-import           Control.Applicative    hiding (many)
+import           Control.Applicative          hiding (many)
 import           Control.Monad
 import           Data.Either
 import           Data.Functor.Identity
-import           Text.Parsec.Char       hiding (newline)
-import           Text.Parsec.Combinator hiding (optional)
-import           Text.Parsec.Error      (ParseError)
+import           Text.Parsec.Char             hiding (newline)
+import           Text.Parsec.Combinator       hiding (optional)
+import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec.Pos
-import           Text.Parsec.Prim       hiding (parse)
+import           Text.Parsec.Prim             hiding (parse)
 
-import qualified Bash.Parse.Internal    as I
-import           Bash.Parse.Packrat
-import           Bash.Types
+import qualified Language.Bash.Parse.Internal as I
+import           Language.Bash.Parse.Packrat
+import           Language.Bash.Syntax
 
 -- | User state.
 data U = U { postHeredoc :: Maybe (State D U) }

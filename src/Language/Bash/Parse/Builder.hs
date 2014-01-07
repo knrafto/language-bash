@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- | Builder-based parsing. This is useful for parsing Bash\'s complicated
 -- words.
-module Bash.Parse.Builder
+module Language.Bash.Parse.Builder
     ( -- * Builders
       Builder
     , fromChar
