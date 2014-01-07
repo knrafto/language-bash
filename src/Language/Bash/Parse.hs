@@ -287,10 +287,10 @@ condCommand = Cond <$ word "[[" <*> many1 condPart <* word "]]"
 coproc :: Parser Command
 coproc = word "coproc" *> coprocCommand
   where
-    coprocCommand = Coproc <$> optional name
+    coprocCommand = Coproc <$> option "COPROC" name
                            <*> (Shell <$> shellCommand <*> pure [])
                            <*> redirList
-                </> Coproc Nothing <$> (Simple <$> simpleCommand) <*> pure []
+                </> Coproc "COPROC" <$> (Simple <$> simpleCommand) <*> pure []
 
 -------------------------------------------------------------------------------
 -- Function definitions

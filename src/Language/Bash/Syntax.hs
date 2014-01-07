@@ -33,7 +33,7 @@ data Command
     = Simple SimpleCommand
     | Shell ShellCommand [Redir]
     | FunctionDef String List [Redir]
-    | Coproc (Maybe String) Command [Redir]
+    | Coproc String Command [Redir]
     deriving (Eq, Read, Show)
 
 -- | A redirection.
