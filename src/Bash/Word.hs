@@ -9,6 +9,8 @@ module Bash.Word
     , fromString
     , toString
     , unquote
+    , showWord
+    , showSpan
     ) where
 
 import           Data.Monoid
@@ -60,34 +62,37 @@ showMany f = foldr (.) id . map f
 
 -- | Convert a word into a rendered string.
 toString :: Word -> String
-toString = ($ "") . go
-  where
-    go = showMany showSpan . split
-
-    showSpan = \case
-        Char c           -> showChar c
-        Escape c         -> showChar '\\' . showChar c
-        Single w         -> wrap "\'"  "\'" (go w)
-        Double w         -> wrap "\""  "\"" (go w)
-        Backquote s      -> wrap "`"   "`"  (showString s)
-        Parameter s      -> showChar '$' . showString s
-        BraceParameter w -> wrap "${"  "}"  (go w)
-        ArithSubst s     -> wrap "$((" "))" (showString s)
-        CommandSubst s   -> wrap "$("  ")"  (showString s)
-        ProcessSubst c s -> showChar c . wrap "(" ")" (showString s)
-
-    wrap start end f = showString start . f . showString end
+toString = ($ "") . showWord
 
 -- | Remove all quoting from a word. This unquotes quoted or escaped
 -- characters, and removes all expansions and substitutions.
 unquote :: Word -> String
 unquote = ($ "") . go
   where
-    go = showMany showSpan . split
-
-    showSpan = \case
+    go          = showMany unquoteSpan . split
+    unquoteSpan = \case
         Char c   -> showChar c
         Escape c -> showChar c
         Single w -> go w
         Double w -> go w
         _        -> id
+
+-- | Render a 'Word'.
+showWord :: Word -> ShowS
+showWord = showMany showSpan . split
+
+-- | Render a 'Span'.
+showSpan :: Span -> ShowS
+showSpan = \case
+    Char c           -> showChar c
+    Escape c         -> showChar '\\' . showChar c
+    Single w         -> wrap "\'"  "\'" (showWord w)
+    Double w         -> wrap "\""  "\"" (showWord w)
+    Backquote s      -> wrap "`"   "`"  (showString s)
+    Parameter s      -> showChar '$' . showString s
+    BraceParameter w -> wrap "${"  "}"  (showWord w)
+    ArithSubst s     -> wrap "$((" "))" (showString s)
+    CommandSubst s   -> wrap "$("  ")"  (showString s)
+    ProcessSubst c s -> showChar c . wrap "(" ")" (showString s)
+  where
+    wrap start end f = showString start . f . showString end
