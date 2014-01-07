@@ -6,7 +6,6 @@ module Bash.Parse
 
 import           Control.Applicative    hiding (many)
 import           Control.Monad
-import           Data.Char
 import           Data.Either
 import           Data.Functor.Identity
 import           Text.Parsec.Char       hiding (newline)
@@ -18,7 +17,6 @@ import           Text.Parsec.Prim       hiding (parse)
 import qualified Bash.Parse.Internal    as I
 import           Bash.Parse.Packrat
 import           Bash.Types
-import           Bash.Word
 
 data U = U { postHeredoc :: Maybe (State D U) }
 
@@ -30,53 +28,6 @@ parse source = runParser script (U Nothing) source . pack (initialPos source)
 -------------------------------------------------------------------------------
 -- Basic parsers
 -------------------------------------------------------------------------------
-
--- | Parse a word satisfying a predicate.
-satisfyWord :: (Word -> Bool) -> Parser Word
-satisfyWord p = do
-    w <- anyWord
-    if p w then return w else unexpected (show (toString w))
-
--- | Parse an operator satisfying a predicate.
-satisfyOperator :: (String -> Bool) -> Parser String
-satisfyOperator p = do
-    op <- anyOperator
-    if p op then return op else unexpected (show op)
-
--- | Parse the given word.
-word :: Word -> Parser Word
-word w = satisfyWord (== w)
-
--- | Parse a reversed word.
-reservedWord :: Parser Word
-reservedWord = satisfyWord (`elem` I.reservedWords)
-
--- | Parse a word that is not reserved.
-unreservedWord :: Parser Word
-unreservedWord = satisfyWord (`notElem` I.reservedWords)
-
--- | Parse an assignment builtin.
-assignBuiltin :: Parser Word
-assignBuiltin = satisfyWord (`elem` I.assignBuiltins)
-
--- | Parse a variable name.
-name :: Parser String
-name = do
-    n <- toString <$> unreservedWord
-    case n of
-        c:cs | isNameStart c && all isNameLetter cs -> return n
-        _                                           -> unexpected (show n)
-  where
-    isNameStart  c = isAlpha c    || c == '_'
-    isNameLetter c = isAlphaNum c || c == '_'
-
--- | Parse a given operator.
-operator :: String -> Parser String
-operator op = satisfyOperator (== op)
-
--- | Parse a non-heredoc redirection operator.
-redirOp :: Parser String
-redirOp = satisfyOperator (`elem` I.redirOps)
 
 -- | Get the next line of input.
 line :: Parser String
@@ -133,14 +84,19 @@ newlineList = skipMany newline
 
 -- | Skip a redirection.
 redir :: Parser Redir
-redir = Redir <$> redirWord <*> redirOp <*> anyWord
-    </> Redir <$> redirWord <*> operator "<<"  <*> heredocWord False
-    </> Redir <$> redirWord <*> operator "<<-" <*> heredocWord True
+redir = normalRedir
+    </> heredocRedir
   where
-    heredocWord strip = do
-        w <- anyWord
-        h <- heredoc strip (unquote w)
-        return (fromString h)  -- TODO
+    normalRedir = Redir <$> redirWord <*> redirOp <*> anyWord
+
+    heredocRedir = do
+        strip <- heredocOp
+        delim <- anyWord
+        h <- heredoc strip (I.unquote delim)
+        return $ Heredoc delim h
+
+    heredocOp = False <$ operator "<<"
+            </> True  <$ operator "<<-"
 
 -- | Skip a list of redirections.
 redirList :: Parser [Redir]
@@ -156,7 +112,7 @@ commandParts p = partitionEithers <$> many part
 -- | Parse a simple command.
 simpleCommand :: Parser SimpleCommand
 simpleCommand = do
-    notFollowedBy (toString <$> reservedWord)
+    notFollowedBy reservedWord
     normalCommand </> assignCommand
   where
     normalCommand = do
@@ -282,7 +238,7 @@ forCommand :: Parser ShellCommand
 forCommand = word "for" *> (arithFor_ </> for_)
   where
     arithFor_ = ArithFor
-            <$  operator "((" <*> I.arith
+            <$  operator "((" <*> arith
             <*  optional listTerm
             <*> doGroup
 
@@ -312,14 +268,13 @@ group = Group <$ word "{" <*> compoundList <* word "}"
 
 -- | Parse an arithmetic command.
 arithCommand :: Parser ShellCommand
-arithCommand = Arith <$ string "((" <*> I.arith <* string "))" <* I.skipSpace
+arithCommand = Arith <$ string "((" <*> arith <* string "))" <* skipSpace
 
 -- | Parse a conditional command.
 condCommand :: Parser ShellCommand
 condCommand = Cond <$ word "[[" <*> many1 condPart <* word "]]"
   where
-    condPart = anyWord
-           </> fromString <$> anyOperator
+    condPart = anyWord </> anyOperator
 
 -------------------------------------------------------------------------------
 -- Coprocesses
@@ -343,13 +298,11 @@ functionDef :: Parser Command
 functionDef = functionDef1
           </> functionDef2
   where
-    functionDef1 = FunctionDef <$ word "function"
-               <*> (toString <$> anyWord)
+    functionDef1 = FunctionDef <$ word "function" <*> anyWord
                <*  optional functionParens <*> functionBody
                <*> redirList
 
-    functionDef2 = FunctionDef
-               <$> (toString <$> unreservedWord)
+    functionDef2 = FunctionDef <$> unreservedWord
                <*  functionParens <*> functionBody
                <*> redirList
 
@@ -370,4 +323,4 @@ command = Shell <$> shellCommand <*> redirList
 
 -- | Parse an entire script (e.g. a file) as a list of commands.
 script :: Parser List
-script = I.skipSpace *> inputList <* eof
+script = skipSpace *> inputList <* eof

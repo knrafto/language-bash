@@ -1,7 +1,9 @@
 -- | Shell script types.
 module Bash.Types
-    ( -- * Commands
-      Command(..)
+    ( -- * Words
+      Word
+      -- * Commands
+    , Command(..)
       -- * Redirections
     , Redir(..)
       -- * Lists
@@ -23,7 +25,8 @@ module Bash.Types
     , CaseTerm(..)
     ) where
 
-import Bash.Word
+-- | A Bash word.
+type Word = String
 
 -- | A Bash command.
 data Command
@@ -34,7 +37,9 @@ data Command
     deriving (Eq, Read, Show)
 
 -- | A redirection.
-data Redir = Redir (Maybe Word) String Word
+data Redir
+    = Redir (Maybe Word) String Word
+    | Heredoc Word Word
     deriving (Eq, Read, Show)
 
 -- | A compound list of statements, terminated by @&@ or @;@.

@@ -27,10 +27,12 @@ library
 
   exposed-modules:
     Bash.Parse
+    Bash.Parse.Builder
     Bash.Types
-    Bash.Word
 
   other-modules:
+    Bash.Parse.Internal
+    Bash.Parse.Packrat
 
   build-depends:
     base,

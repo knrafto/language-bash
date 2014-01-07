@@ -1,81 +1,26 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 -- | Low-level parsers.
 module Bash.Parse.Internal
-    ( -- * Tokens
-      reservedWords
-    , assignBuiltins
-    , redirOps
-    , heredocOps
-    , controlOps
-    , normalOps
-      -- * Parsers
-    , skipSpace
+    ( skipSpace
     , word
     , word1
-    , operator
-    , assign
     , arith
+    , assign
+    , operator
+    , unquote
     ) where
 
-import Prelude                hiding (span)
+import           Control.Applicative
+import           Control.Monad
+import           Data.Monoid
+import           Text.Parsec.Char
+import           Text.Parsec.Combinator hiding (optional)
+import           Text.Parsec.Prim       hiding ((<|>), many)
+import           Text.Parsec.String     ()
 
-import Control.Applicative
-import Data.Char
-import Data.List              hiding (span)
-import Text.Parsec.Char
-import Text.Parsec.Combinator hiding (optional)
-import Text.Parsec.Prim       hiding ((<|>), many)
-
-import Bash.Word
-import Bash.Types
-
--- | Shell reserved words.
-reservedWords :: [Word]
-reservedWords =
-    [ "!", "[[", "]]", "{", "}"
-    , "if", "then", "else", "elif", "fi"
-    , "case", "esac", "for", "select", "while", "until"
-    , "in", "do", "done", "time", "function"
-    ]
-
--- | Shell assignment builtins. These builtins can take assignments as
--- arguments.
-assignBuiltins :: [Word]
-assignBuiltins =
-    [ "alias", "declare", "export", "eval"
-    , "let", "local", "readonly", "typeset"
-    ]
-
--- | Redirection operators, not including heredoc operators.
-redirOps :: [String]
-redirOps = [">", "<", ">>", ">|", "<>", "<<<", "<&", ">&", "&>", "&>>"]
-
--- | Heredoc operators.
-heredocOps :: [String]
-heredocOps = ["<<", "<<-"]
-
--- | Shell control operators.
-controlOps :: [String]
-controlOps =
-    [ "(", ")", ";;", ";&", ";;&"
-    , "|", "|&", "||", "&&", ";", "&", "\n"
-    ]
-
--- | All normal mode operators.
-normalOps :: [String]
-normalOps = redirOps ++ heredocOps ++ controlOps
-
--- | @upTo n p@ parses zero to @n@ occurences of @p@.
-upTo :: Alternative f => Int -> f a -> f [a]
-upTo m p = go m
-  where
-    go n | n < 0     = empty
-         | n == 0    = pure []
-         | otherwise = (:) <$> p <*> go (n - 1) <|> pure []
-
--- | @upTo1 n p@ parses one to @n@ occurences of @p@.
-upTo1 :: Alternative f => Int -> f a -> f [a]
-upTo1 n p = (:) <$> p <*> upTo (n - 1) p
+import           Bash.Parse.Builder     (Builder, (<+>))
+import qualified Bash.Parse.Builder     as B
+import           Bash.Types
 
 -- | @surroundBy p sep@ parses zero or more occurences of @p@, beginning,
 -- ending, and separated by @sep@.
@@ -86,163 +31,109 @@ surroundBy
     -> ParsecT s u m [a]
 surroundBy p sep = sep *> endBy p sep
 
--- | Parse a comment
-comment :: Stream s m Char => ParsecT s u m String
-comment = char '#' *> many (satisfy (/= '\n'))
-
 -- | Skip spaces, tabs, and comments.
 skipSpace :: Stream s m Char => ParsecT s u m ()
 skipSpace = skipMany spaceChar <* optional comment
   where
-    spaceChar = () <$ try (string "\\\n")
-            <|> () <$ oneOf " \t"
+    spaceChar = try (B.string "\\\n")
+            <|> B.oneOf " \t"
 
--- | Parse a name.
-name :: Stream s m Char => ParsecT s u m String
-name = (:) <$> nameStart <*> many nameLetter
+    comment = char '#' *> many (satisfy (/= '\n'))
+
+-- | Parse a backslash-escaped sequence.
+escape :: Stream s m Char => ParsecT s u m Builder
+escape = B.char '\\' <+> B.anyChar
+
+-- | Parse a single-quoted string.
+singleQuote :: Stream s m Char => ParsecT s u m Builder
+singleQuote = B.matchedPair '\'' '\'' empty
+
+-- | Parse a double-quoted string.
+doubleQuote :: Stream s m Char => ParsecT s u m Builder
+doubleQuote = B.matchedPair '"' '"' $ escape <|> backquote <|> dollar
+
+-- | Parse an ANSI C string.
+ansiQuote :: Stream s m Char => ParsecT s u m Builder
+ansiQuote = B.char '$' <+> B.matchedPair '\'' '\'' escape
+
+-- | Parse a locale string.
+localeQuote :: Stream s m Char => ParsecT s u m Builder
+localeQuote = B.char '$' <+> doubleQuote
+
+-- | Parse a backquoted string.
+backquote :: Stream s m Char => ParsecT s u m Builder
+backquote = B.matchedPair '`' '`' escape
+
+-- | Parse a brace-style parameter expansion, an arithmetic substitution,
+-- or a command substitution.
+dollar :: Stream s m Char => ParsecT s u m Builder
+dollar = B.char '$' <+> rest
   where
-    nameStart  = letter   <|> char '_'
-    nameLetter = alphaNum <|> char '_'
+    rest = braceParameter
+       <|> try arithSubst
+       <|> commandSubst
+       <|> return mempty
 
--- | A helper type for parsing parenthesized strings.
-data Parens
-    = Span Span
-    | Parens [Parens]
-    | Comment String
+    braceParameter = B.matchedPair '{' '}' $
+            escape
+        <|> singleQuote
+        <|> doubleQuote
+        <|> backquote
+        <|> dollar
 
--- | Convert 'Parens' back to a string.
-fromParens :: [Parens] -> String
-fromParens = ($ "") . showParens
+    arithSubst = B.string "((" <+> parens <+> B.string "))"
+
+    commandSubst = subst
+
+-- | Parse a process substitution.
+processSubst :: Stream s m Char => ParsecT s u m Builder
+processSubst = B.oneOf "<>" <+> subst
+
+-- | Parse a parenthesized substitution.
+subst :: Stream s m Char => ParsecT s u m Builder
+subst = B.matchedPair '(' ')' $
+        subst
+    <|> B.char '#' <+> B.many (B.satisfy (/= '\n')) <+> B.char '\n'
+    <|> escape
+    <|> singleQuote
+    <|> doubleQuote
+    <|> backquote
+    <|> dollar
+
+-- | Parse a parenthesized expression.
+parens :: Stream s m Char => ParsecT s u m Builder
+parens = B.many inner
   where
-    showMany f = foldr (.) id . map f
-    showParens = showMany $ \case
-        Span s    -> showSpan s
-        Parens ps -> showChar '(' . showParens ps . showChar ')'
-        Comment s -> showChar '#' . showString s
-
--- | @span start end escape@ parses a span starting with @start@ and ending
--- with @end@, with possible @escape@ sequences inside.
-span
-    :: Stream s m Char
-    => Char -> Char
-    -> ParsecT s u m Span
-    -> ParsecT s u m Word
-span start end escape = Word <$ char start <*> many inner <* char end
-  where
-    inner = escape
-        <|> Char <$> satisfy (/= end)
-
--- | Parse an ANSI C string in single quotes.
-ansiString :: Stream s m Char => ParsecT s u m Word
-ansiString = span '\'' '\'' (try escape)
-  where
-    escape = Escape <$ char '\\' <*> escapeCode
-
-    escapeCode = charCodes
-             <|> char 'x' *> hex 2
-             <|> char 'u' *> hex 4
-             <|> char 'U' *> hex 8
-             <|> oct 3
-             <|> char 'c' *> ctrlCodes
-
-    charCodes = codes "abeEfnrtv\\\'\"" "\a\b\ESC\ESC\f\n\r\t\v\\\'\""
-
-    ctrlCodes = '\FS' <$ try (string "\\\\")
-            <|> codes "@ABCDEFGHIJKLMOPQRSTUVWXYZ[]^_?"
-                      ("\NUL\SOH\STX\ETX\EOT\ENQ\ACK\BEL\BS\HT\LF\VT\FF" ++
-                       "\CR\SO\SI\DLE\DC1\DC2\DC3\DC4\NAK\SYN\ETB\CAN\EM" ++
-                       "\SUB\ESC\GS\RS\US\DEL")
-
-    codes chars replacements = do
-        c <- anyChar
-        case lookup c table of
-            Nothing -> unexpected [c]
-            Just c' -> return c'
-      where
-        table = zip chars replacements
-
-    oct n = number n 8 octDigit
-    hex n = number n 16 hexDigit
-
-    number maxDigits base baseDigit = do
-        digits <- map digitToInt <$> upTo1 maxDigits baseDigit
-        let n = foldl' (\x d -> base*x + d) 0 digits
-        return $ if n > ord maxBound then '\0' else chr n  -- arbitrary
+    inner = B.matchedPair '(' ')' parens
 
 -- | Parse a word part.
-wordSpan :: Stream s m Char => ParsecT s u m Span
-wordSpan = try (string "\\\n" *> wordPart)
+wordSpan :: Stream s m Char => ParsecT s u m Builder
+wordSpan = mempty <$ try (string "\\\n")
        <|> escape
-       <|> single
-       <|> double
+       <|> singleQuote
+       <|> doubleQuote
+       <|> try ansiQuote
+       <|> try localeQuote
        <|> backquote
-       <|> try specialQuote
        <|> dollar
        <|> try processSubst
-  where
-    escape    = Escape <$ char '\\' <*> anyChar
-    single    = Single <$> span '\'' '\'' empty
-    double    = Double <$> span '\"' '\"' (escape <|> backquote <|> dollar)
-    backquote = Backquote . toString <$> span '`' '`' escape
-
-    specialQuote = char '$' *> rest
-      where
-        rest = Single <$> ansiString
-           <|> double
-
-    dollar = char '$' *> rest
-      where
-        rest = parameter
-           <|> braceParameter
-           <|> try arithSubst
-           <|> commandSubst
-           <|> return (Char '$')
-
-    parameter = Parameter <$> rest
-      where
-        rest = name
-           <|> return <$> digit
-           <|> return <$> oneOf "*@#?-$!_"
-
-    braceParameter = BraceParameter <$> span '{' '}' inner
-      where
-        inner = escape
-            <|> single
-            <|> double
-            <|> backquote
-            <|> dollar
-
-    arithSubst   = ArithSubst <$ string "((" <*> arith <* string "))"
-    commandSubst = CommandSubst <$> subst
-    processSubst = ProcessSubst <$> oneOf "<>" <*> subst
-
-    subst = fromParens <$> parens
-      where
-        parens = char '(' *> many inner <* char ')'
-
-        inner = Parens <$> parens
-            <|> Comment <$> comment
-            <|> Span <$> innerSpan
-
-        innerSpan = escape
-                <|> single
-                <|> double
-                <|> backquote
-                <|> dollar
-                <|> Char <$> satisfy (/= ')')
-
--- | Parse a part of a normal word.
-wordPart :: Stream s m Char => ParsecT s u m Span
-wordPart = wordSpan
-       <|> Char <$> noneOf " \t\n|&;()<>"
 
 -- | Parse a word.
-word :: Stream s m Char => ParsecT s u m Word
-word = Word <$> many wordPart
+word :: Stream s m Char => ParsecT s u m String
+word = B.toString <$> B.many wordPart
+  where
+    wordPart = wordSpan
+           <|> B.noneOf " \t\n|&;()<>"
 
 -- | Parse a nonempty word.
-word1 :: Stream s m Char => ParsecT s u m Word
-word1 = Word <$> many1 wordPart
+word1 :: Stream s m Char => ParsecT s u m String
+word1 = do
+    w <- word
+    w <$ guard (not (null w))
+
+-- | Parse an arithmetic expression.
+arith :: Stream s m Char => ParsecT s u m String
+arith = B.toString <$> parens
 
 -- | Lex a token in assignment mode. This lexes only assignment statements.
 assign :: Stream s m Char => ParsecT s u m Assign
@@ -250,7 +141,11 @@ assign = Assign <$> lvalue <*> assignOp <*> rvalue
   where
     lvalue = LValue <$> name <*> optional subscript
 
-    subscript = span '[' ']' wordSpan
+    name       = (:) <$> nameStart <*> many nameLetter
+    nameStart  = letter   <|> char '_'
+    nameLetter = alphaNum <|> char '_'
+
+    subscript = B.toString <$> B.span '[' ']' wordSpan
 
     assignOp = Equals     <$ string "="
            <|> PlusEquals <$ string "+="
@@ -280,11 +175,22 @@ operator = go
 
     prefix c = map tail . filter (\x -> not (null x) && head x == c)
 
--- | Parse an arithmetic expression.
-arith :: Stream s m Char => ParsecT s u m String
-arith = fromParens <$> go
+-- | Unquote a word.
+unquote :: String -> String
+unquote s = case parse unquoteBare s s of
+    Left _   -> s
+    Right s' -> B.toString s'
   where
-    go = many paren
+    unquoteBare = B.many $
+            try unquoteEscape
+        <|> try unquoteSingle
+        <|> try unquoteDouble
+        <|> try unquoteAnsi
+        <|> try unquoteLocale
+        <|> B.anyChar
 
-    paren = Parens <$ char '(' <*> go <* char ')'
-        <|> Span . Char <$> satisfy (/= ')')
+    unquoteEscape = char '\\' *> B.anyChar
+    unquoteSingle = B.span '\'' '\'' empty
+    unquoteDouble = B.span '\"' '\"' unquoteEscape
+    unquoteAnsi   = char '$' *> B.span '\'' '\'' unquoteEscape
+    unquoteLocale = char '$' *> unquoteDouble
