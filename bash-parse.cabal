@@ -26,12 +26,15 @@ library
   hs-source-dirs: src
 
   exposed-modules:
+    Bash.Parse
     Bash.Types
     Bash.Word
 
   other-modules:
 
   build-depends:
-    base         >= 4   && < 5
+    base,
+    parsec,
+    transformers
 
   ghc-options: -Wall -O2
