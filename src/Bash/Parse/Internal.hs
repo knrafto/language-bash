@@ -1,7 +1,15 @@
-{-# LANGUAGE FlexibleContexts, LambdaCase #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, OverloadedStrings #-}
 -- | Low-level parsers.
 module Bash.Parse.Internal
-    ( skipSpace
+    ( -- * Tokens
+      reservedWords
+    , assignBuiltins
+    , redirOps
+    , heredocOps
+    , controlOps
+    , normalOps
+      -- * Parsers
+    , skipSpace
     , word
     , word1
     , operator
@@ -20,6 +28,42 @@ import Text.Parsec.Prim       hiding ((<|>), many)
 
 import Bash.Word
 import Bash.Types
+
+-- | Shell reserved words.
+reservedWords :: [Word]
+reservedWords =
+    [ "!", "[[", "]]", "{", "}"
+    , "if", "then", "else", "elif", "fi"
+    , "case", "esac", "for", "select", "while", "until"
+    , "in", "do", "done", "time", "function"
+    ]
+
+-- | Shell assignment builtins. These builtins can take assignments as
+-- arguments.
+assignBuiltins :: [Word]
+assignBuiltins =
+    [ "alias", "declare", "export", "eval"
+    , "let", "local", "readonly", "typeset"
+    ]
+
+-- | Redirection operators, not including heredoc operators.
+redirOps :: [String]
+redirOps = [">", "<", ">>", ">|", "<>", "<<<", "<&", ">&", "&>", "&>>"]
+
+-- | Heredoc operators.
+heredocOps :: [String]
+heredocOps = ["<<", "<<-"]
+
+-- | Shell control operators.
+controlOps :: [String]
+controlOps =
+    [ "(", ")", ";;", ";&", ";;&"
+    , "|", "|&", "||", "&&", ";", "&", "\n"
+    ]
+
+-- | All normal mode operators.
+normalOps :: [String]
+normalOps = redirOps ++ heredocOps ++ controlOps
 
 -- | @upTo n p@ parses zero to @n@ occurences of @p@.
 upTo :: Alternative f => Int -> f a -> f [a]
