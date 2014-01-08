@@ -125,54 +125,61 @@ satisfying
     => ParsecT s u m a
     -> (a -> Bool)
     -> ParsecT s u m a
-satisfying a p = do
+satisfying a p = try $ do
     t <- a
     if p t then return t else unexpected (show t)
 
 -- | Parse a single token.
 token :: Monad m => ParsecT D u m Token
-token = rat _token
+token = try (rat _token) <?> "token"
 
 -- | Parse any word.
 anyWord :: Monad m => ParsecT D u m Word
-anyWord = rat _anyWord
+anyWord = try (rat _anyWord) <?> "word"
 
 -- | Parse the given word.
 word :: Monad m => Word -> ParsecT D u m Word
-word w = anyWord `satisfying` (== w)
+word w = anyWord `satisfying` (== w) <?> w
 
 -- | Parse a redirection word or number.
 redirWord :: Monad m => ParsecT D u m (Maybe Word)
-redirWord = rat _redirWord
+redirWord = try (rat _redirWord) <?> "redirection"
 
 -- | Parse a reversed word.
 reservedWord :: Monad m => ParsecT D u m Word
-reservedWord = anyWord `satisfying` (`elem` reservedWords)
+reservedWord = anyWord `satisfying` (`elem` reservedWords) <?> "reserved word"
 
 -- | Parse a word that is not reserved.
 unreservedWord :: Monad m => ParsecT D u m Word
 unreservedWord = anyWord `satisfying` (`notElem` reservedWords)
+    <?> "unreserved word"
 
 -- | Parse an assignment builtin.
 assignBuiltin :: Monad m => ParsecT D u m Word
 assignBuiltin = anyWord `satisfying` (`elem` assignBuiltins)
+    <?> "assignment builtin"
 
 -- | Parse a variable name.
 name :: Monad m => ParsecT D u m String
-name = unreservedWord `satisfying` isName
+name = unreservedWord `satisfying` isName <?> "name"
+
+-- | Parse an arithmetic expression.
+arith :: Monad m => ParsecT D u m String
+arith = try (string "((") *> I.arith <* string "))" <* I.skipSpace
+    <?> "arithmetic expression"
 
 -- | Parse any operator.
 anyOperator :: Monad m => ParsecT D u m String
-anyOperator = rat _anyOperator
+anyOperator = try (rat _anyOperator) <?> "operator"
 
 -- | Parse a given operator.
 operator :: Monad m => String -> ParsecT D u m String
-operator op = anyOperator `satisfying` (== op)
+operator op = anyOperator `satisfying` (== op) <?> op
 
 -- | Parse a non-heredoc redirection operator.
 redirOp :: Monad m => ParsecT D u m String
-redirOp = anyOperator `satisfying` (`elem` redirOps)
+redirOp = anyOperator `satisfying` (`elem` redirOps) <?> "redirection operator"
 
 -- | Parse an assignment.
 assign :: Monad m => ParsecT D u m Assign
-assign = rat _assign
+assign = try (rat _assign) <?> "assignment"
