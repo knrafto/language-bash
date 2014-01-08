@@ -34,6 +34,22 @@ instance (Pretty a, Pretty b) => Pretty (Either a b) where
 instance Pretty Command where
     pretty (Command c rs) = pretty c <+> pretty rs
 
+instance Pretty Redir where
+    pretty (Redir desc op rhs) =
+        pretty desc <> text op <> text rhs
+    pretty (Heredoc op delim quoted doc) =
+        text op <> text (if quoted then "'" ++ delim ++ "'" else delim) <>
+        "\n" <> text doc <> text delim <> "\n"
+
+    prettyList = foldr f empty
+      where
+        f a@(Redir{})   b = pretty a <+> b
+        f a@(Heredoc{}) b = pretty a <> b
+
+instance Pretty IODesc where
+    pretty (IONumber n) = int n
+    pretty (IOVar n)    = "{" <> text n <> "}"
+
 instance Pretty ShellCommand where
     pretty (SimpleCommand as ws)  = pretty as <+> pretty ws
     pretty (AssignBuiltin w args) = text w <+> pretty args
@@ -76,18 +92,6 @@ instance Pretty CaseTerm where
     pretty Break       = ";;"
     pretty FallThrough = ";&"
     pretty Continue    = ";;&"
-
-instance Pretty Redir where
-    pretty (Redir rword op rhs) =
-        pretty rword <> text op <+> text rhs
-    pretty (Heredoc op delim quoted doc) =
-        text op <> text (if quoted then "'" ++ delim ++ "'" else delim) <>
-        "\n" <> text doc <> text delim <> "\n"
-
-    prettyList = foldr f empty
-      where
-        f a@(Redir{})   b = pretty a <+> b
-        f a@(Heredoc{}) b = pretty a <> b
 
 instance Pretty List where
     pretty (List as) = pretty as

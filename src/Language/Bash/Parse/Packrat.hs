@@ -1,7 +1,9 @@
 {-# LANGUAGE
-    FlexibleInstances
+    FlexibleContexts
+  , FlexibleInstances
   , LambdaCase
   , MultiParamTypeClasses
+  , PatternGuards
   , RecordWildCards
   #-}
 -- | Memoized packrat parsing, inspired by Edward Kmett\'s
@@ -15,26 +17,27 @@ module Language.Bash.Parse.Packrat
       -- * Words
     , anyWord
     , word
-    , redirWord
     , reservedWord
     , unreservedWord
     , assignBuiltin
+    , ioDesc
     , name
-    , arith
       -- * Operators
     , anyOperator
     , operator
     , redirOp
       -- * Assignments
     , assign
+      -- * Arithmetic expressions
+    , arith
     ) where
 
 import           Control.Applicative
 import           Control.Monad
-import           Data.Char
 import           Data.Function
 import           Data.Functor.Identity
 import           Text.Parsec.Char
+import           Text.Parsec.Combinator       hiding (optional)
 import           Text.Parsec.Prim             hiding ((<|>), token)
 import           Text.Parsec.Pos
 
@@ -60,13 +63,13 @@ womp d pos p = fmap runIdentity . runIdentity $
 -- | A token.
 data Token
     = TWord Word
-    | TRedirWord Word
+    | TIODesc IODesc
 
 -- | A stream with memoized results.
 data D = D
     { _token       :: Result D Token
     , _anyWord     :: Result D Word
-    , _redirWord   :: Result D (Maybe Word)
+    , _ioDesc      :: Result D IODesc
     , _anyOperator :: Result D String
     , _assign      :: Result D Assign
     , _uncons      :: Maybe (Char, D)
@@ -85,14 +88,15 @@ pack p s = fix $ \d ->
             next <- optional (lookAhead anyChar)
             I.skipSpace
             return $ case next of
-                Just c | (c == '<' || c == '>') &&
-                         isRedirWord t -> TRedirWord t
-                _                      -> TWord t
+                Just c | c == '<' || c == '>'
+                       , Right desc <- parse (descriptor <* eof) "" t
+                  -> TIODesc desc
+                _ -> TWord t
         _anyWord     = result $ token >>= \case
             TWord w -> return w
             _       -> empty
-        _redirWord   = result $ optional $ token >>= \case
-            TRedirWord w -> return w
+        _ioDesc      = result $ token >>= \case
+            TIODesc desc -> return desc
             _            -> empty
         _anyOperator = result $ I.operator normalOps <* I.skipSpace
         _assign      = result $ I.assign <* I.skipSpace
@@ -100,23 +104,6 @@ pack p s = fix $ \d ->
             []     -> Nothing
             (x:xs) -> Just (x, pack (updatePosChar p x) xs)
     in  D {..}
-
--- | Detect a redirection word.
-isRedirWord :: String -> Bool
-isRedirWord [] = False
-isRedirWord s  = all isDigit s ||
-                 s == "{" ++ center ++ "}" && isName center
-  where
-    center = drop 1 (init s)
-
--- | Detect a valid name.
-isName :: String -> Bool
-isName s = case s of
-    []     -> False
-    (c:cs) -> isNameStart c && all isNameLetter cs
-  where
-    isNameStart  c = isAlpha c    || c == '_'
-    isNameLetter c = isAlphaNum c || c == '_'
 
 -- | Parse a value satisfying the predicate.
 satisfying
@@ -127,6 +114,11 @@ satisfying
 satisfying a p = try $ do
     t <- a
     if p t then return t else unexpected (show t)
+
+-- | Parse a descriptor.
+descriptor :: Stream s m Char => ParsecT s u m IODesc
+descriptor = IONumber . read <$> many1 digit
+         <|> IOVar <$ char '{' <*> I.name <* char '}'
 
 -- | Parse a single token.
 token :: Monad m => ParsecT D u m Token
@@ -139,10 +131,6 @@ anyWord = try (rat _anyWord) <?> "word"
 -- | Parse the given word.
 word :: Monad m => Word -> ParsecT D u m Word
 word w = anyWord `satisfying` (== w) <?> w
-
--- | Parse a redirection word or number.
-redirWord :: Monad m => ParsecT D u m (Maybe Word)
-redirWord = try (rat _redirWord) <?> "redirection"
 
 -- | Parse a reversed word.
 reservedWord :: Monad m => ParsecT D u m Word
@@ -158,14 +146,17 @@ assignBuiltin :: Monad m => ParsecT D u m Word
 assignBuiltin = anyWord `satisfying` (`elem` assignBuiltins)
     <?> "assignment builtin"
 
+-- | Parse a redirection word or number.
+ioDesc :: Monad m => ParsecT D u m IODesc
+ioDesc = try (rat _ioDesc) <?> "IO descriptor"
+
 -- | Parse a variable name.
 name :: Monad m => ParsecT D u m String
 name = unreservedWord `satisfying` isName <?> "name"
-
--- | Parse an arithmetic expression.
-arith :: Monad m => ParsecT D u m String
-arith = try (string "((") *> I.arith <* string "))" <* I.skipSpace
-    <?> "arithmetic expression"
+  where
+    isName s = case parse (I.name <* eof) "" s of
+        Left _  -> False
+        Right _ -> True
 
 -- | Parse any operator.
 anyOperator :: Monad m => ParsecT D u m String
@@ -182,3 +173,8 @@ redirOp = anyOperator `satisfying` (`elem` redirOps) <?> "redirection operator"
 -- | Parse an assignment.
 assign :: Monad m => ParsecT D u m Assign
 assign = try (rat _assign) <?> "assignment"
+
+-- | Parse an arithmetic expression.
+arith :: Monad m => ParsecT D u m String
+arith = try (string "((") *> I.arith <* string "))" <* I.skipSpace
+    <?> "arithmetic expression"

@@ -5,6 +5,7 @@ module Language.Bash.Syntax
       Word
     , Command(..)
     , Redir(..)
+    , IODesc(..)
     , ShellCommand(..)
     , CaseClause(..)
     , CaseTerm(..)
@@ -38,12 +39,20 @@ data Command = Command ShellCommand [Redir]
 
 -- | A redirection.
 data Redir
-    -- | A redirection, consisting of an optional number or @{varname}@,
+    -- | A redirection, consisting of an optional descriptor,
     -- a redirection operator, and a target.
-    = Redir (Maybe Word) String Word
+    = Redir (Maybe IODesc) String Word
     -- | A heredoc, consisting of an operator, a delimiter, whether or not the
     -- delimiter was quoted, and the document itself.
     | Heredoc String String Bool String
+    deriving (Eq, Read, Show)
+
+-- | A redirection file descriptor.
+data IODesc
+    -- | A file descriptor number.
+    = IONumber Int
+    -- | A variable @{/varname/}@ to allocate a file descriptor for.
+    | IOVar String
     deriving (Eq, Read, Show)
 
 -- | A Bash command.

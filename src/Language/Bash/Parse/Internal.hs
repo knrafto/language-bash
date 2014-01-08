@@ -4,6 +4,7 @@ module Language.Bash.Parse.Internal
     ( skipSpace
     , word
     , arith
+    , name
     , assign
     , operator
     , unquote
@@ -127,15 +128,18 @@ word = B.toString <$> B.many wordPart <?> "word"
 arith :: Stream s m Char => ParsecT s u m String
 arith = B.toString <$> parens <?> "arithmetic expression"
 
--- | Lex a token in assignment mode. This lexes only assignment statements.
+-- | Parse a name.
+name :: Stream s m Char => ParsecT s u m String
+name = (:) <$> nameStart <*> many nameLetter
+  where
+    nameStart  = letter   <|> char '_'
+    nameLetter = alphaNum <|> char '_'
+
+-- | Parse an assignment.
 assign :: Stream s m Char => ParsecT s u m Assign
 assign = Assign <$> lvalue <*> assignOp <*> rvalue <?> "assignment"
   where
     lvalue = LValue <$> name <*> subscript
-
-    name       = (:) <$> nameStart <*> many nameLetter
-    nameStart  = letter   <|> char '_'
-    nameLetter = alphaNum <|> char '_'
 
     subscript = Subscript . fmap B.toString
             <$> optional (B.span '[' ']' wordSpan)

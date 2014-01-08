@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 -- | Bash input parsing.
 module Language.Bash.Parse
     ( parse
@@ -102,7 +101,7 @@ redir = normalRedir
     <|> heredocRedir
     <?> "redirection"
   where
-    normalRedir = Redir <$> redirWord <*> redirOp <*> anyWord
+    normalRedir = Redir <$> optional ioDesc <*> redirOp <*> anyWord
 
     heredocRedir = do
         (strip, op) <- heredocOp
@@ -180,7 +179,7 @@ pipelineCommand = time
 
     addRedir (Command c rs) = Command c (stderrRedir : rs)
 
-    stderrRedir = Redir (Just "2") ">&" "1"
+    stderrRedir = Redir (Just (IONumber 2)) ">&" "1"
 
 -- | Parse a compound list of commands.
 compoundList :: Parser List
