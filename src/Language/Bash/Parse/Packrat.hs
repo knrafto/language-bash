@@ -42,48 +42,6 @@ import           Text.Parsec.Pos
 import qualified Language.Bash.Parse.Internal as I
 import           Language.Bash.Syntax
 
-infixl 3 </>
-
--- | Backtracking choice.
-(</>) :: Monad m => ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
-p </> q = try p <|> q
-
--- | Shell reserved words.
-reservedWords :: [Word]
-reservedWords =
-    [ "!", "[[", "]]", "{", "}"
-    , "if", "then", "else", "elif", "fi"
-    , "case", "esac", "for", "select", "while", "until"
-    , "in", "do", "done", "time", "function"
-    ]
-
--- | Shell assignment builtins. These builtins can take assignments as
--- arguments.
-assignBuiltins :: [Word]
-assignBuiltins =
-    [ "alias", "declare", "export", "eval"
-    , "let", "local", "readonly", "typeset"
-    ]
-
--- | Redirection operators, not including heredoc operators.
-redirOps :: [String]
-redirOps = [">", "<", ">>", ">|", "<>", "<<<", "<&", ">&", "&>", "&>>"]
-
--- | Heredoc operators.
-heredocOps :: [String]
-heredocOps = ["<<", "<<-"]
-
--- | Shell control operators.
-controlOps :: [String]
-controlOps =
-    [ "(", ")", ";;", ";&", ";;&"
-    , "|", "|&", "||", "&&", ";", "&", "\n"
-    ]
-
--- | All normal mode operators.
-normalOps :: [String]
-normalOps = redirOps ++ heredocOps ++ controlOps
-
 -- | A memoized result.
 type Result d a = Consumed (Reply d () a)
 

@@ -1,14 +1,13 @@
 -- | Shell script types.
 module Language.Bash.Syntax
-    ( -- * Words
+    ( -- * Syntax
+      -- ** Commands
       Word
-      -- * Commands
     , Command(..)
+    , Redir(..)
     , ShellCommand(..)
     , CaseClause(..)
     , CaseTerm(..)
-      -- * Redirections
-    , Redir(..)
       -- * Lists
     , List(..)
     , Statement(..)
@@ -21,6 +20,13 @@ module Language.Bash.Syntax
     , LValue(..)
     , AssignOp(..)
     , RValue(..)
+      -- * Syntax elements
+    , reservedWords
+    , assignBuiltins
+    , redirOps
+    , heredocOps
+    , controlOps
+    , normalOps
     ) where
 
 -- | A Bash word.
@@ -28,6 +34,16 @@ type Word = String
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
+    deriving (Eq, Read, Show)
+
+-- | A redirection.
+data Redir
+    -- | A redirection, consisting of an optional number or @{varname}@,
+    -- a redirection operator, and a target.
+    = Redir (Maybe Word) String Word
+    -- | A heredoc, consisting of an operator, a delimiter, whether or not the
+    -- delimiter was quoted, and the document itself.
+    | Heredoc String String Bool String
     deriving (Eq, Read, Show)
 
 -- | A Bash command.
@@ -81,16 +97,6 @@ data CaseTerm
     -- | The @;;&@ operator.
     | Continue
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
-
--- | A redirection.
-data Redir
-    -- | A redirection, consisting of an optional number or @{varname}@,
-    -- a redirection operator, and a target.
-    = Redir (Maybe Word) String Word
-    -- | A heredoc, consisting of an operator, a delimiter, whether or not the
-    -- delimiter was quoted, and the document itself.
-    | Heredoc String String Bool String
-    deriving (Eq, Read, Show)
 
 -- | A compound list of statements.
 newtype List = List [Statement]
@@ -157,3 +163,39 @@ data RValue
     -- | An array assignment.
     | RArray [(Subscript, Word)]
     deriving (Eq, Read, Show)
+
+-- | Shell reserved words.
+reservedWords :: [Word]
+reservedWords =
+    [ "!", "[[", "]]", "{", "}"
+    , "if", "then", "else", "elif", "fi"
+    , "case", "esac", "for", "select", "while", "until"
+    , "in", "do", "done", "time", "function"
+    ]
+
+-- | Shell assignment builtins. These builtins can take assignments as
+-- arguments.
+assignBuiltins :: [Word]
+assignBuiltins =
+    [ "alias", "declare", "export", "eval"
+    , "let", "local", "readonly", "typeset"
+    ]
+
+-- | Redirection operators, not including heredoc operators.
+redirOps :: [String]
+redirOps = [">", "<", ">>", ">|", "<>", "<<<", "<&", ">&", "&>", "&>>"]
+
+-- | Heredoc operators.
+heredocOps :: [String]
+heredocOps = ["<<", "<<-"]
+
+-- | Shell control operators.
+controlOps :: [String]
+controlOps =
+    [ "(", ")", ";;", ";&", ";;&"
+    , "|", "|&", "||", "&&", ";", "&", "\n"
+    ]
+
+-- | All normal operators.
+normalOps :: [String]
+normalOps = redirOps ++ heredocOps ++ controlOps
