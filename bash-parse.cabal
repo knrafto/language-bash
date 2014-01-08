@@ -28,6 +28,7 @@ library
   exposed-modules:
     Language.Bash.Parse
     Language.Bash.Parse.Builder
+    Language.Bash.PrettyPrint
     Language.Bash.Syntax
 
   other-modules:
@@ -37,6 +38,7 @@ library
   build-depends:
     base         >= 4   && < 5,
     parsec       >= 3.0 && < 4.0,
+    pretty       >= 1.0 && < 2.0,
     transformers >= 0.2 && < 0.4
 
   ghc-options: -Wall -O2
