@@ -273,11 +273,11 @@ selectCommand = Select <$ word "select" <*> anyWord <*> wordList <*> doGroup
 ifCommand :: Parser ShellCommand
 ifCommand = word "if" *> if_
   where
-    if_ = If <$> compoundList <* word "then" <*> compoundList
-      <*> optional (try alternative) <* word "fi"
+    if_ = If <$> compoundList <* word "then" <*> compoundList <*> alternative
 
-    alternative = singleton <$ word "elif" <*> if_
-              </> word "else" *> compoundList
+    alternative = Just . singleton <$ word "elif" <*> if_
+              </> Just             <$ word "else" <*> compoundList <* word "fi"
+              </> Nothing          <$ word "fi"
 
 -- | Parse a subshell command.
 subshell :: Parser ShellCommand

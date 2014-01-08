@@ -59,7 +59,7 @@ instance Pretty ShellCommand where
     pretty (If p t f) =
         "if" <+> pretty p <+> "then" $+$
         nest 4 (pretty t) $+$
-        maybe empty (\l -> "else" $+$ pretty l) f $+$
+        maybe empty (\l -> "else" $+$ nest 4 (pretty l)) f $+$
         "fi"
     pretty (Until p l) =
         "until" <+> pretty p <+> doDone l
