@@ -18,6 +18,9 @@ class Pretty a where
 instance Pretty a => Pretty [a] where
     pretty = prettyList
 
+instance Pretty Doc where
+    pretty = id
+
 instance Pretty Char where
     pretty c   = text [c]
     prettyList = text
@@ -41,7 +44,7 @@ instance Pretty ShellCommand where
     pretty (Subshell l) =
         "(" <+> pretty l <+> ")"
     pretty (Group l) =
-        "{" $+$ nest 4 (pretty l) $+$ "}"
+        "{" $+$ indent l $+$ "}"
     pretty (Arith s) =
         "((" <> text s <> "))"
     pretty (Cond ws) =
@@ -53,13 +56,10 @@ instance Pretty ShellCommand where
     pretty (Select w ws l) =
         "select" <+> text w <+> "in" <+> pretty ws <> ";" $+$ doDone l
     pretty (Case w cs) =
-        "case" <+> text w <+> "in" $+$
-        nest 4 (pretty cs) $+$
-        "esac"
+        "case" <+> text w <+> "in" $+$ indent cs $+$ "esac"
     pretty (If p t f) =
-        "if" <+> pretty p <+> "then" $+$
-        nest 4 (pretty t) $+$
-        maybe empty (\l -> "else" $+$ nest 4 (pretty l)) f $+$
+        "if" <+> pretty p <+> "then" $+$ indent t $+$
+        pretty (fmap (\l -> "else" $+$ indent l) f) $+$
         "fi"
     pretty (Until p l) =
         "until" <+> pretty p <+> doDone l
@@ -69,7 +69,7 @@ instance Pretty ShellCommand where
 instance Pretty CaseClause where
     pretty (CaseClause ps l term) =
         hsep (punctuate " | " (map text ps)) <> ")" $+$
-        nest 4 (pretty l) $+$
+        indent l $+$
         pretty term
 
 instance Pretty CaseTerm where
@@ -136,6 +136,10 @@ instance Pretty RValue where
       where
         f (sub, w) = pretty sub <> "=" <> text w
 
+-- | Indent by 4 columns.
+indent :: Pretty a => a -> Doc
+indent = nest 4 . pretty
+
 -- | Render a @do...done@ block.
 doDone :: Pretty a => a -> Doc
-doDone a = "do" $+$ nest 4 (pretty a) $+$ "done"
+doDone a = "do" $+$ indent a $+$ "done"
