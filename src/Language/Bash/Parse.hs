@@ -101,18 +101,30 @@ redir = normalRedir
     <|> heredocRedir
     <?> "redirection"
   where
-    normalRedir = Redir <$> optional ioDesc <*> redirOp <*> anyWord
+    normalRedir = do
+        desc   <- optional ioDesc
+        op     <- redirOperator
+        target <- anyWord
+        return $ Redir
+            { redirDesc   = desc
+            , redirOp     = op
+            , redirTarget = target
+            }
 
     heredocRedir = do
-        (strip, op) <- heredocOp
+        (strip, op) <- heredocOperator
         w <- anyWord
-        let delim  = I.unquote w
-            quoted = delim /= w
+        let delim = I.unquote w
         h <- heredoc strip delim
-        return $ Heredoc op delim quoted h
+        return $ Heredoc
+            { redirOp            = op
+            , heredocDelim       = delim
+            , heredocDelimQuoted = delim /= w
+            , document           = h
+            }
 
-    heredocOp = (,) False <$> operator "<<"
-            <|> (,) True  <$> operator "<<-"
+    heredocOperator = (,) False <$> operator "<<"
+                  <|> (,) True  <$> operator "<<-"
 
 -- | Skip a list of redirections.
 redirList :: Parser [Redir]
@@ -150,6 +162,20 @@ simpleCommand = do
 -- Lists
 -------------------------------------------------------------------------------
 
+-- | A list with one command.
+singleton :: ShellCommand -> List
+singleton c =
+    List [Statement (Last (unmodifiedPipeline [Command c []])) Sequential]
+
+-- | An unmodified pipeline.
+unmodifiedPipeline :: [Command] -> Pipeline
+unmodifiedPipeline cs = Pipeline
+    { timed      = False
+    , timedPosix = False
+    , inverted   = False
+    , commands   = cs
+    }
+
 -- | Parse a pipeline.
 pipelineCommand :: Parser Pipeline
 pipelineCommand = time
@@ -157,15 +183,24 @@ pipelineCommand = time
               <|> pipeline1
               <?> "pipeline"
   where
-    invert = Invert <$ word "!" <*> pipeline0
+    invert = do
+        _ <- word "!"
+        p <- pipeline0
+        return $ p { inverted = not (inverted p) }
 
-    time = Time <$ word "time" <*> timeFlag <*> (invert <|> pipeline0)
+    time = do
+        _ <- word "time"
+        p <- posixFlag <|> invert <|> pipeline0
+        return $ p { timed = True }
 
-    timeFlag = True <$ word "-p"
-           <|> pure False
+    posixFlag = do
+        _ <- word "-p"
+        _ <- optional (word "--")
+        p <- invert <|> pipeline0
+        return $ p { timedPosix = True }
 
-    pipeline0 = Pipeline <$> commandList0
-    pipeline1 = Pipeline <$> commandList1
+    pipeline0 = unmodifiedPipeline <$> commandList0
+    pipeline1 = unmodifiedPipeline <$> commandList1
 
     commandList0 = option [] commandList1
     commandList1 = do
@@ -205,10 +240,6 @@ doGroup = word "do" *> compoundList <* word "done"
 -------------------------------------------------------------------------------
 -- Compound commands
 -------------------------------------------------------------------------------
-
--- | A list with one command.
-singleton :: ShellCommand -> List
-singleton c = List [Statement (Last (Pipeline [Command c []])) Sequential]
 
 -- | Parse a compound command.
 shellCommand :: Parser ShellCommand

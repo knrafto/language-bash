@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 -- | Pretty printing of Bash scripts. This tries to stay as close to the format
 -- used by @declare -f@ as possible.
 module Language.Bash.PrettyPrint
@@ -35,11 +35,14 @@ instance Pretty Command where
     pretty (Command c rs) = pretty c <+> pretty rs
 
 instance Pretty Redir where
-    pretty (Redir desc op rhs) =
-        pretty desc <> text op <> text rhs
-    pretty (Heredoc op delim quoted doc) =
-        text op <> text (if quoted then "'" ++ delim ++ "'" else delim) <>
-        "\n" <> text doc <> text delim <> "\n"
+    pretty Redir{..} =
+        pretty redirDesc <> text redirOp <> text redirTarget
+    pretty Heredoc{..} =
+        text redirOp <>
+        text (if heredocDelimQuoted
+              then "'" ++ heredocDelim ++ "'"
+              else heredocDelim) <> "\n" <>
+        text document <> text heredocDelim <> "\n"
 
     prettyList = foldr f empty
       where
@@ -115,10 +118,11 @@ instance Pretty AndOr where
     pretty (Or p a)  = pretty p <+> "||" <+> pretty a
 
 instance Pretty Pipeline where
-    pretty (Time flag p) =
-        "time" <+> (if flag then "-p" else empty) <+> pretty p
-    pretty (Invert p)    = "!" <+> pretty p
-    pretty (Pipeline cs) = hcat . punctuate " | " $ map pretty cs
+    pretty Pipeline{..} =
+        (if timed      then "time" else empty) <+>
+        (if timedPosix then "-p"   else empty) <+>
+        (if inverted   then "!"    else empty) <+>
+        pretty commands
 
 instance Pretty Assign where
     pretty (Assign lhs op rhs) = pretty lhs <> pretty op <> pretty rhs

@@ -25,7 +25,7 @@ module Language.Bash.Parse.Packrat
       -- * Operators
     , anyOperator
     , operator
-    , redirOp
+    , redirOperator
       -- * Assignments
     , assign
       -- * Arithmetic expressions
@@ -167,8 +167,9 @@ operator :: Monad m => String -> ParsecT D u m String
 operator op = anyOperator `satisfying` (== op) <?> op
 
 -- | Parse a non-heredoc redirection operator.
-redirOp :: Monad m => ParsecT D u m String
-redirOp = anyOperator `satisfying` (`elem` redirOps) <?> "redirection operator"
+redirOperator :: Monad m => ParsecT D u m String
+redirOperator = anyOperator `satisfying` (`elem` redirOps)
+    <?> "redirection operator"
 
 -- | Parse an assignment.
 assign :: Monad m => ParsecT D u m Assign

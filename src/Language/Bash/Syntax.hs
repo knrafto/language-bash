@@ -39,12 +39,26 @@ data Command = Command ShellCommand [Redir]
 
 -- | A redirection.
 data Redir
-    -- | A redirection, consisting of an optional descriptor,
-    -- a redirection operator, and a target.
-    = Redir (Maybe IODesc) String Word
-    -- | A heredoc, consisting of an operator, a delimiter, whether or not the
-    -- delimiter was quoted, and the document itself.
-    | Heredoc String String Bool String
+    -- | A redirection.
+    = Redir
+        { -- | An optional file descriptor.
+          redirDesc   :: Maybe IODesc
+          -- | The redirection operator.
+        , redirOp     :: String
+          -- | The redirection target.
+        , redirTarget :: Word
+        }
+    -- | A here document.
+    | Heredoc
+        { -- | The here document operator.
+          redirOp            :: String
+          -- | The here document delimiter.
+        , heredocDelim       :: String
+          -- | 'True' if the delimiter was quoted.
+        , heredocDelimQuoted :: Bool
+          -- | The document itself.
+        , document           :: String
+        }
     deriving (Eq, Read, Show)
 
 -- | A redirection file descriptor.
@@ -134,16 +148,18 @@ data AndOr
     deriving (Eq, Read, Show)
 
 -- | A (possibly timed or inverted) pipeline, linked with @|@ or @|&@.
-data Pipeline
-    -- | A timed pipeline, optionally witha @-p@ flag.
-    = Time Bool Pipeline
-    -- | A pipeline inverted with @!@.
-    | Invert Pipeline
-    -- | A list of commands, separated by @|@, or @|&@.
-    -- @command1 |& command2@ is treated as a shorthand for
-    -- @command1 2>&1 | command2@.
-    | Pipeline [Command]
-    deriving (Eq, Read, Show)
+data Pipeline = Pipeline
+    { -- | 'True' if the pipeline is timed with @time@.
+      timed      :: Bool
+      -- | 'True' if the pipeline is timed with the @-p@ flag.
+    , timedPosix :: Bool
+      -- | 'True' if the pipeline is inverted with @!@.
+    , inverted   :: Bool
+      -- | A list of commands, separated by @|@, or @|&@.
+      -- @command1 |& command2@ is treated as a shorthand for
+      -- @command1 2>&1 | command2@.
+    , commands   :: [Command]
+    } deriving (Eq, Read, Show)
 
 -- | An assignment.
 data Assign = Assign LValue AssignOp RValue
