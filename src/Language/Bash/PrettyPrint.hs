@@ -84,7 +84,7 @@ instance Pretty ShellCommand where
 
 instance Pretty CaseClause where
     pretty (CaseClause ps l term) =
-        hsep (punctuate " | " (map text ps)) <> ")" $+$
+        hcat (punctuate " | " (map text ps)) <> ")" $+$
         indent l $+$
         pretty term
 
@@ -106,8 +106,8 @@ instance Pretty Statement where
         f a@(Statement _ Asynchronous) b = pretty a <+> b
 
 instance Pretty ListTerm where
-    pretty Sequential = ";"
-    pretty Asynchronous    = "&"
+    pretty Sequential   = ";"
+    pretty Asynchronous = "&"
 
 instance Pretty AndOr where
     pretty (Last p)  = pretty p
@@ -118,7 +118,7 @@ instance Pretty Pipeline where
     pretty (Time flag p) =
         "time" <+> (if flag then "-p" else empty) <+> pretty p
     pretty (Invert p)    = "!" <+> pretty p
-    pretty (Pipeline cs) = hsep . punctuate " | " $ map pretty cs
+    pretty (Pipeline cs) = hcat . punctuate " | " $ map pretty cs
 
 instance Pretty Assign where
     pretty (Assign lhs op rhs) = pretty lhs <> pretty op <> pretty rhs
