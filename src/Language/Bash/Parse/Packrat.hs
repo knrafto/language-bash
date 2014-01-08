@@ -127,8 +127,9 @@ pack p s = fix $ \d ->
             next <- optional (lookAhead anyChar)
             I.skipSpace
             return $ case next of
-                Just c | c == '<' || c == '>' -> TRedirWord t
-                _                             -> TWord t
+                Just c | (c == '<' || c == '>') &&
+                         isRedirWord t -> TRedirWord t
+                _                      -> TWord t
         _anyWord     = result $ token >>= \case
             TWord w -> return w
             _       -> empty
@@ -141,6 +142,23 @@ pack p s = fix $ \d ->
             []     -> Nothing
             (x:xs) -> Just (x, pack (updatePosChar p x) xs)
     in  D {..}
+
+-- | Detect a redirection word.
+isRedirWord :: String -> Bool
+isRedirWord [] = False
+isRedirWord s  = all isDigit s ||
+                 s == "{" ++ center ++ "}" && isName center
+  where
+    center = drop 1 (init s)
+
+-- | Detect a valid name.
+isName :: String -> Bool
+isName s = case s of
+    []     -> False
+    (c:cs) -> isNameStart c && all isNameLetter cs
+  where
+    isNameStart  c = isAlpha c    || c == '_'
+    isNameLetter c = isAlphaNum c || c == '_'
 
 -- | Parse a value satisfying the predicate.
 satisfying
@@ -182,14 +200,7 @@ assignBuiltin = anyWord `satisfying` (`elem` assignBuiltins)
 
 -- | Parse a variable name.
 name :: Monad m => ParsecT D u m String
-name = do
-    n <- unreservedWord
-    case n of
-        c:cs | isNameStart c && all isNameLetter cs -> return n
-        _                                           -> unexpected (show n)
-  where
-    isNameStart  c = isAlpha c    || c == '_'
-    isNameLetter c = isAlphaNum c || c == '_'
+name = unreservedWord `satisfying` isName
 
 -- | Parse any operator.
 anyOperator :: Monad m => ParsecT D u m String

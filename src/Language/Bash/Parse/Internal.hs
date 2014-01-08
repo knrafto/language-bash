@@ -139,7 +139,7 @@ arith = B.toString <$> parens
 assign :: Stream s m Char => ParsecT s u m Assign
 assign = Assign <$> lvalue <*> assignOp <*> rvalue
   where
-    lvalue = LValue <$> name <*> optional subscript
+    lvalue = LValue <$> name <*> (Subscript <$> optional subscript)
 
     name       = (:) <$> nameStart <*> many nameLetter
     nameStart  = letter   <|> char '_'
@@ -155,8 +155,8 @@ assign = Assign <$> lvalue <*> assignOp <*> rvalue
 
     arrayElems = arrayElem `surroundBy` skipArraySpace
 
-    arrayElem = (,) <$> (Just <$> subscript) <* char '=' <*> word
-            <|> (,) <$> pure Nothing <*> word1
+    arrayElem = (,) <$> (Subscript . Just <$> subscript) <* char '=' <*> word
+            <|> (,) <$> pure (Subscript Nothing) <*> word1
 
     skipArraySpace = char '\n' `surroundBy` skipSpace
 
