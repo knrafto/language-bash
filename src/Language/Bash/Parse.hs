@@ -33,10 +33,15 @@ parse source = runParser script (U Nothing) source . pack (initialPos source)
 -------------------------------------------------------------------------------
 
 infixl 3 </>
+infix  0 ?:
 
 -- | Backtracking choice.
 (</>) :: ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
 p </> q = try p <|> q
+
+-- | Name a parser from the front.
+(?:) :: String -> ParsecT s u m a -> ParsecT s u m a
+(?:) = flip (<?>)
 
 -- | Get the next line of input.
 line :: Parser String
@@ -44,7 +49,7 @@ line = lookAhead anyChar *> many (satisfy (/= '\n')) <* optional (char '\n')
 
 -- | Parse the next here document.
 heredoc :: Bool -> String -> Parser String
-heredoc strip end = do
+heredoc strip end = "here document" ?: do
     (h, s) <- lookAhead duck
     setState $ U (Just s)
     return h
@@ -66,7 +71,7 @@ heredoc strip end = do
 
 -- | Parse a newline, skipping any here documents.
 newline :: Parser String
-newline = do
+newline = "newline" ?: do
     _ <- char '\n'
     u <- getState
     case postHeredoc u of
@@ -77,7 +82,7 @@ newline = do
 
 -- | Parse a list terminator.
 listTerm :: Parser ListTerm
-listTerm = term <* newlineList
+listTerm = term <* newlineList <?> "list terminator"
   where
     term = Sequential   <$ newline
        <|> Sequential   <$ operator ";"
@@ -95,6 +100,7 @@ newlineList = skipMany newline
 redir :: Parser Redir
 redir = normalRedir
     <|> heredocRedir
+    <?> "redirection"
   where
     normalRedir = Redir <$> redirWord <*> redirOp <*> anyWord
 
@@ -126,13 +132,13 @@ simpleCommand = do
     notFollowedBy reservedWord
     normalCommand </> assignCommand
   where
-    normalCommand = do
+    normalCommand = "simple command" ?: do
         (as, rs1) <- commandParts assign
         (ws, rs2) <- commandParts anyWord
         guard (not $ null as && null ws)
         return $ Command (SimpleCommand as ws) (rs1 ++ rs2)
 
-    assignCommand = do
+    assignCommand = "assignment builtin" ?: do
         rs1 <- redirList
         w <- assignBuiltin
         (args, rs2) <- commandParts assignArg
@@ -150,6 +156,7 @@ pipelineCommand :: Parser Pipeline
 pipelineCommand = time
               <|> invert
               <|> pipeline1
+              <?> "pipeline"
   where
     invert = Invert <$ word "!" <*> pipeline0
 
@@ -177,7 +184,7 @@ pipelineCommand = time
 
 -- | Parse a compound list of commands.
 compoundList :: Parser List
-compoundList = List <$ newlineList <*> many1 statement
+compoundList = List <$ newlineList <*> many1 statement <?> "list"
   where
     statement = Statement <$> andOr <*> option Sequential listTerm
 
@@ -216,6 +223,7 @@ shellCommand = group
            <|> condCommand
            <|> arithCommand
            <|> subshell
+           <?> "compound command"
 
 -- | Parse a @case@ command.
 caseCommand :: Parser ShellCommand
@@ -234,11 +242,13 @@ caseCommand = Case <$ word "case"
 
     pattern = optional (operator "(")
            *> anyWord `sepBy` operator "|"
-           <* operator ")"
+          <*  operator ")"
+          <?> "pattern list"
 
     clauseTerm = Break       <$ operator ";;"
              <|> FallThrough <$ operator ";&"
              <|> Continue    <$ operator ";;&"
+             <?> "case clause terminator"
 
 -- | Parse a @while@ command.
 whileCommand :: Parser ShellCommand
@@ -254,11 +264,12 @@ untilCommand = Until <$ word "until"
 
 -- | Parse a list of words for a @for@ or @select@ command.
 wordList :: Parser [Word]
-wordList = [] <$ operator ";" <* newlineList
+wordList = ["$@\""] <$ operator ";" <* newlineList
        <|> newlineList *> inList
+       <?> "word list"
   where
     inList = word "in" *> many anyWord <* listTerm
-         <|> return ["\"$@\""]
+         <|> return ["$@\""]
 
 -- | Parse a @for@ command.
 forCommand :: Parser ShellCommand
@@ -306,7 +317,7 @@ condCommand = Cond <$ word "[[" <*> many1 condPart <* word "]]"
 
 -- | Parse a coprocess command.
 coproc :: Parser ShellCommand
-coproc = word "coproc" *> coprocCommand
+coproc = word "coproc" *> coprocCommand <?> "coprocess"
   where
     coprocCommand = Coproc <$> option "COPROC" name
                            <*> (Command <$> shellCommand <*> pure [])
@@ -320,6 +331,7 @@ coproc = word "coproc" *> coprocCommand
 functionDef :: Parser ShellCommand
 functionDef = functionDef2
           </> functionDef1
+          <?> "function definition"
   where
     functionDef1 = FunctionDef <$ word "function" <*> anyWord
                <*  optional functionParens <* newlineList
@@ -345,6 +357,7 @@ functionDef = functionDef2
 command :: Parser Command
 command = Command <$> compoundCommand <*> redirList
       <|> simpleCommand
+      <?> "command"
   where
     compoundCommand = shellCommand
                   <|> coproc
