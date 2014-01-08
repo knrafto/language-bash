@@ -12,7 +12,7 @@ import           Text.Parsec.Char             hiding (newline)
 import           Text.Parsec.Combinator       hiding (optional)
 import           Text.Parsec.Error            (ParseError)
 import           Text.Parsec.Pos
-import           Text.Parsec.Prim             hiding (parse)
+import           Text.Parsec.Prim             hiding (parse, (<|>))
 
 import qualified Language.Bash.Parse.Internal as I
 import           Language.Bash.Parse.Packrat
@@ -31,6 +31,12 @@ parse source = runParser script (U Nothing) source . pack (initialPos source)
 -------------------------------------------------------------------------------
 -- Basic parsers
 -------------------------------------------------------------------------------
+
+infixl 3 </>
+
+-- | Backtracking choice.
+(</>) :: ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
+p </> q = try p <|> q
 
 -- | Get the next line of input.
 line :: Parser String
@@ -74,8 +80,8 @@ listTerm :: Parser ListTerm
 listTerm = term <* newlineList
   where
     term = Sequential   <$ newline
-       </> Sequential   <$ operator ";"
-       </> Asynchronous <$ operator "&"
+       <|> Sequential   <$ operator ";"
+       <|> Asynchronous <$ operator "&"
 
 -- | Skip zero or more newlines.
 newlineList :: Parser ()
@@ -88,7 +94,7 @@ newlineList = skipMany newline
 -- | Skip a redirection.
 redir :: Parser Redir
 redir = normalRedir
-    </> heredocRedir
+    <|> heredocRedir
   where
     normalRedir = Redir <$> redirWord <*> redirOp <*> anyWord
 
@@ -101,18 +107,18 @@ redir = normalRedir
         return $ Heredoc op delim quoted h
 
     heredocOp = (,) False <$> operator "<<"
-            </> (,) True  <$> operator "<<-"
+            <|> (,) True  <$> operator "<<-"
 
 -- | Skip a list of redirections.
 redirList :: Parser [Redir]
-redirList = many (try redir)
+redirList = many redir
 
 -- | Parse part of a command.
 commandParts :: Parser a -> Parser ([a], [Redir])
-commandParts p = partitionEithers <$> many (try part)
+commandParts p = partitionEithers <$> many part
   where
     part = Left  <$> p
-       </> Right <$> redir
+       <|> Right <$> redir
 
 -- | Parse a simple command.
 simpleCommand :: Parser Command
@@ -133,7 +139,7 @@ simpleCommand = do
         return $ Command (AssignBuiltin w args) (rs1 ++ rs2)
 
     assignArg = Left  <$> assign
-            </> Right <$> anyWord
+            <|> Right <$> anyWord
 
 -------------------------------------------------------------------------------
 -- Lists
@@ -142,27 +148,27 @@ simpleCommand = do
 -- | Parse a pipeline.
 pipelineCommand :: Parser Pipeline
 pipelineCommand = time
-              </> invert
-              </> pipeline1
+              <|> invert
+              <|> pipeline1
   where
     invert = Invert <$ word "!" <*> pipeline0
 
-    time = Time <$ word "time" <*> timeFlag <*> (invert </> pipeline0)
+    time = Time <$ word "time" <*> timeFlag <*> (invert <|> pipeline0)
 
     timeFlag = True <$ word "-p"
-           </> pure False
+           <|> pure False
 
     pipeline0 = Pipeline <$> commandList0
     pipeline1 = Pipeline <$> commandList1
 
-    commandList0 = option [] (try commandList1)
+    commandList0 = option [] commandList1
     commandList1 = do
         c <- command
-        pipelineSep c </> pure [c]
+        pipelineSep c <|> pure [c]
 
     pipelineSep c = do
         c' <- c          <$ operator "|"
-          </> addRedir c <$ operator "|&"
+          <|> addRedir c <$ operator "|&"
         (c' :) <$> commandList0
 
     addRedir (Command c rs) = Command c (stderrRedir : rs)
@@ -171,24 +177,24 @@ pipelineCommand = time
 
 -- | Parse a compound list of commands.
 compoundList :: Parser List
-compoundList = List <$ newlineList <*> many1 (try statement)
+compoundList = List <$ newlineList <*> many1 statement
   where
-    statement = Statement <$> andOr <*> option Sequential (try listTerm)
+    statement = Statement <$> andOr <*> option Sequential listTerm
 
     andOr = do
         p <- pipelineCommand
         let rest = And p <$ operator "&&" <* newlineList <*> andOr
-               </> Or  p <$ operator "||" <* newlineList <*> andOr
-        rest </> pure (Last p)
+               <|> Or  p <$ operator "||" <* newlineList <*> andOr
+        rest <|> pure (Last p)
 
 -- | Parse a possible empty compound list of commands.
 inputList :: Parser List
-inputList = newlineList *> option (List []) (try compoundList)
+inputList = newlineList *> option (List []) compoundList
 
 -- | Parse a command group, wrapped either in braces or in a @do...done@ block.
 doGroup :: Parser List
 doGroup = word "do" *> compoundList <* word "done"
-      </> word "{"  *> compoundList <* word "}"
+      <|> word "{"  *> compoundList <* word "}"
 
 -------------------------------------------------------------------------------
 -- Compound commands
@@ -201,15 +207,15 @@ singleton c = List [Statement (Last (Pipeline [Command c []])) Sequential]
 -- | Parse a compound command.
 shellCommand :: Parser ShellCommand
 shellCommand = group
-           </> ifCommand
-           </> caseCommand
-           </> forCommand
-           </> whileCommand
-           </> untilCommand
-           </> selectCommand
-           </> condCommand
-           </> arithCommand
-           </> subshell
+           <|> ifCommand
+           <|> caseCommand
+           <|> forCommand
+           <|> whileCommand
+           <|> untilCommand
+           <|> selectCommand
+           <|> condCommand
+           <|> arithCommand
+           <|> subshell
 
 -- | Parse a @case@ command.
 caseCommand :: Parser ShellCommand
@@ -219,20 +225,20 @@ caseCommand = Case <$ word "case"
           <*> clauses
   where
     clauses = [] <$ word "esac"
-          </> do p <- pattern
+          <|> do p <- pattern
                  c <- inputList
                  nextClause (CaseClause p c)
 
     nextClause f = (:) <$> (f <$> clauseTerm) <* newlineList <*> clauses
-               </> [f Break] <$ newlineList <* word "esac"
+               <|> [f Break] <$ newlineList <* word "esac"
 
-    pattern = optional (try (operator "("))
+    pattern = optional (operator "(")
            *> anyWord `sepBy` operator "|"
            <* operator ")"
 
     clauseTerm = Break       <$ operator ";;"
-             </> FallThrough <$ operator ";&"
-             </> Continue    <$ operator ";;&"
+             <|> FallThrough <$ operator ";&"
+             <|> Continue    <$ operator ";;&"
 
 -- | Parse a @while@ command.
 whileCommand :: Parser ShellCommand
@@ -249,19 +255,16 @@ untilCommand = Until <$ word "until"
 -- | Parse a list of words for a @for@ or @select@ command.
 wordList :: Parser [Word]
 wordList = [] <$ operator ";" <* newlineList
-       </> newlineList *> inList
+       <|> newlineList *> inList
   where
-    inList = word "in" *> many (try anyWord) <* listTerm
-         </> return ["\"$@\""]
+    inList = word "in" *> many anyWord <* listTerm
+         <|> return ["\"$@\""]
 
 -- | Parse a @for@ command.
 forCommand :: Parser ShellCommand
-forCommand = word "for" *> (arithFor_ </> for_)
+forCommand = word "for" *> (arithFor_ <|> for_)
   where
-    arithFor_ = ArithFor
-            <$  string "((" <*> arith <* string "))" <* skipSpace
-            <*  optional (try listTerm)
-            <*> doGroup
+    arithFor_ = ArithFor <$> arith <* optional listTerm <*> doGroup
 
     for_ = For <$> anyWord <*> wordList <*> doGroup
 
@@ -276,8 +279,8 @@ ifCommand = word "if" *> if_
     if_ = If <$> compoundList <* word "then" <*> compoundList <*> alternative
 
     alternative = Just . singleton <$ word "elif" <*> if_
-              </> Just             <$ word "else" <*> compoundList <* word "fi"
-              </> Nothing          <$ word "fi"
+              <|> Just             <$ word "else" <*> compoundList <* word "fi"
+              <|> Nothing          <$ word "fi"
 
 -- | Parse a subshell command.
 subshell :: Parser ShellCommand
@@ -289,13 +292,13 @@ group = Group <$ word "{" <*> compoundList <* word "}"
 
 -- | Parse an arithmetic command.
 arithCommand :: Parser ShellCommand
-arithCommand = Arith <$ string "((" <*> arith <* string "))" <* skipSpace
+arithCommand = Arith <$> arith
 
 -- | Parse a conditional command.
 condCommand :: Parser ShellCommand
-condCommand = Cond <$ word "[[" <*> many1 (try condPart) <* word "]]"
+condCommand = Cond <$ word "[[" <*> many1 condPart <* word "]]"
   where
-    condPart = anyWord </> anyOperator
+    condPart = anyWord <|> anyOperator
 
 -------------------------------------------------------------------------------
 -- Coprocesses
@@ -305,7 +308,7 @@ condCommand = Cond <$ word "[[" <*> many1 (try condPart) <* word "]]"
 coproc :: Parser ShellCommand
 coproc = word "coproc" *> coprocCommand
   where
-    coprocCommand = Coproc <$> option "COPROC" (try name)
+    coprocCommand = Coproc <$> option "COPROC" name
                            <*> (Command <$> shellCommand <*> pure [])
                 </> Coproc "COPROC" <$> simpleCommand
 
@@ -315,11 +318,11 @@ coproc = word "coproc" *> coprocCommand
 
 -- | Parse a function definition.
 functionDef :: Parser ShellCommand
-functionDef = functionDef1
-          </> functionDef2
+functionDef = functionDef2
+          </> functionDef1
   where
     functionDef1 = FunctionDef <$ word "function" <*> anyWord
-               <*  optional (try functionParens) <* newlineList
+               <*  optional functionParens <* newlineList
                <*> functionBody
 
     functionDef2 = FunctionDef <$> unreservedWord
@@ -329,7 +332,7 @@ functionDef = functionDef1
     functionParens = operator "(" <* operator ")"
 
     functionBody = unwrap <$> group
-               </> singleton <$> shellCommand
+               <|> singleton <$> shellCommand
 
     unwrap (Group l) = l
     unwrap _         = List []
@@ -341,11 +344,11 @@ functionDef = functionDef1
 -- | Parse a single command.
 command :: Parser Command
 command = Command <$> compoundCommand <*> redirList
-      </> simpleCommand
+      <|> simpleCommand
   where
     compoundCommand = shellCommand
-                  </> coproc
-                  </> functionDef
+                  <|> coproc
+                  <|> functionDef
 
 -- | Parse an entire script (e.g. a file) as a list of commands.
 script :: Parser List

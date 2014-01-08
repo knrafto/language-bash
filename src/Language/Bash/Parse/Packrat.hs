@@ -8,8 +8,7 @@
 -- \"A Parsec Full of Rats\".
 module Language.Bash.Parse.Packrat
     ( -- * Packrat parsing
-      (</>)
-    , D
+      D
     , pack
       -- * Whitespace
     , I.skipSpace
@@ -21,7 +20,7 @@ module Language.Bash.Parse.Packrat
     , unreservedWord
     , assignBuiltin
     , name
-    , I.arith
+    , arith
       -- * Operators
     , anyOperator
     , operator
