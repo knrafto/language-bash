@@ -28,7 +28,7 @@ library
   exposed-modules:
     Language.Bash.Parse
     Language.Bash.Parse.Builder
-    Language.Bash.PrettyPrint
+    Language.Bash.Pretty
     Language.Bash.Syntax
 
   other-modules:

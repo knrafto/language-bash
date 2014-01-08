@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 -- | Pretty printing of Bash scripts. This tries to stay as close to the format
 -- used by @declare -f@ as possible.
-module Language.Bash.PrettyPrint
+module Language.Bash.Pretty
     ( Pretty(..)
     ) where
 
