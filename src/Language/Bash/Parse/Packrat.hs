@@ -2,7 +2,6 @@
     FlexibleInstances
   , LambdaCase
   , MultiParamTypeClasses
-  , OverloadedStrings
   , RecordWildCards
   #-}
 -- | Memoized packrat parsing, inspired by Edward Kmett\'s
@@ -32,8 +31,9 @@ module Language.Bash.Parse.Packrat
     ) where
 
 import           Control.Applicative
-import           Control.Monad.Fix
+import           Control.Monad
 import           Data.Char
+import           Data.Function
 import           Data.Functor.Identity
 import           Text.Parsec.Char
 import           Text.Parsec.Prim             hiding ((<|>), token)
@@ -123,7 +123,8 @@ pack :: SourcePos -> String -> D
 pack p s = fix $ \d ->
     let result       = womp d p
         _token       = result $ do
-            t <- I.word1
+            t <- I.word
+            guard $ not (null t)
             next <- optional (lookAhead anyChar)
             I.skipSpace
             return $ case next of

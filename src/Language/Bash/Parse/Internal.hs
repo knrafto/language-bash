@@ -3,7 +3,6 @@
 module Language.Bash.Parse.Internal
     ( skipSpace
     , word
-    , word1
     , arith
     , assign
     , operator
@@ -11,7 +10,6 @@ module Language.Bash.Parse.Internal
     ) where
 
 import           Control.Applicative
-import           Control.Monad
 import           Data.Monoid
 import           Text.Parsec.Char
 import           Text.Parsec.Combinator      hiding (optional)
@@ -33,7 +31,7 @@ surroundBy p sep = sep *> endBy p sep
 
 -- | Skip spaces, tabs, and comments.
 skipSpace :: Stream s m Char => ParsecT s u m ()
-skipSpace = skipMany spaceChar <* optional comment
+skipSpace = skipMany spaceChar <* optional comment <?> "whitespace"
   where
     spaceChar = try (B.string "\\\n")
             <|> B.oneOf " \t"
@@ -120,32 +118,27 @@ wordSpan = mempty <$ try (string "\\\n")
 
 -- | Parse a word.
 word :: Stream s m Char => ParsecT s u m String
-word = B.toString <$> B.many wordPart
+word = B.toString <$> B.many wordPart <?> "word"
   where
     wordPart = wordSpan
            <|> B.noneOf " \t\n|&;()<>"
 
--- | Parse a nonempty word.
-word1 :: Stream s m Char => ParsecT s u m String
-word1 = do
-    w <- word
-    w <$ guard (not (null w))
-
 -- | Parse an arithmetic expression.
 arith :: Stream s m Char => ParsecT s u m String
-arith = B.toString <$> parens
+arith = B.toString <$> parens <?> "arithmetic expression"
 
 -- | Lex a token in assignment mode. This lexes only assignment statements.
 assign :: Stream s m Char => ParsecT s u m Assign
-assign = Assign <$> lvalue <*> assignOp <*> rvalue
+assign = Assign <$> lvalue <*> assignOp <*> rvalue <?> "assignment"
   where
-    lvalue = LValue <$> name <*> (Subscript <$> optional subscript)
+    lvalue = LValue <$> name <*> subscript
 
     name       = (:) <$> nameStart <*> many nameLetter
     nameStart  = letter   <|> char '_'
     nameLetter = alphaNum <|> char '_'
 
-    subscript = B.toString <$> B.span '[' ']' wordSpan
+    subscript = Subscript . fmap B.toString
+            <$> optional (B.span '[' ']' wordSpan)
 
     assignOp = Equals     <$ string "="
            <|> PlusEquals <$ string "+="
@@ -155,23 +148,26 @@ assign = Assign <$> lvalue <*> assignOp <*> rvalue
 
     arrayElems = arrayElem `surroundBy` skipArraySpace
 
-    arrayElem = (,) <$> (Subscript . Just <$> subscript) <* char '=' <*> word
-            <|> (,) <$> pure (Subscript Nothing) <*> word1
+    arrayElem = do
+        e <- (,) <$> subscript <* char '=' <*> word
+        case e of
+            (Subscript Nothing, "") -> empty
+            _                       -> return e
 
     skipArraySpace = char '\n' `surroundBy` skipSpace
 
 -- | Parse the longest available operator from a list.
 operator :: Stream s m Char => [String] -> ParsecT s u m String
-operator = go
+operator ops = go ops <?> "operator"
   where
-    go ops
-        | null ops      = empty
-        | "" `elem` ops = try (continue ops) <|> pure ""
-        | otherwise     = continue ops
+    go xs
+        | null xs      = empty
+        | "" `elem` xs = try (continue xs) <|> pure ""
+        | otherwise    = continue xs
 
-    continue ops = do
+    continue xs = do
         c <- anyChar
-        (c :) <$> go (prefix c ops)
+        (c :) <$> go (prefix c xs)
 
     prefix c = map tail . filter (\x -> not (null x) && head x == c)
 
