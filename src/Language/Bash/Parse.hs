@@ -1,4 +1,4 @@
--- | Bash input parsing.
+-- | Bash script and input parsing.
 module Language.Bash.Parse
     ( parse
     ) where

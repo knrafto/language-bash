@@ -1,17 +1,22 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
--- | Pretty printing of Bash scripts. This tries to stay as close to the format
--- used by @declare -f@ as possible.
+-- | Pretty-printing of Bash scripts. This tries to stay close to the format
+-- used by the Bash builtin @declare -f@.
 module Language.Bash.Pretty
     ( Pretty(..)
+    , render
     ) where
 
 import Text.PrettyPrint
 
 import Language.Bash.Syntax
 
--- | Render a type to a pretty-printed 'Doc'.
+-- | A class of types which may be pretty-printed.
 class Pretty a where
+    -- | Pretty-print to a 'Doc'.
     pretty     :: a -> Doc
+
+    -- | Pretty-print a list. By default, this separates each element with
+    -- a space using 'hsep'.
     prettyList :: [a] -> Doc
     prettyList = hsep . map pretty
 

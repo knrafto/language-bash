@@ -50,8 +50,7 @@ data Redir
         }
     -- | A here document.
     | Heredoc
-        { -- | The here document operator.
-          redirOp            :: String
+        { redirOp            :: String
           -- | The here document delimiter.
         , heredocDelim       :: String
           -- | 'True' if the delimiter was quoted.
@@ -206,11 +205,11 @@ assignBuiltins =
     , "let", "local", "readonly", "typeset"
     ]
 
--- | Redirection operators, not including heredoc operators.
+-- | Redirection operators, not including here document operators.
 redirOps :: [String]
 redirOps = [">", "<", ">>", ">|", "<>", "<<<", "<&", ">&", "&>", "&>>"]
 
--- | Heredoc operators.
+-- | Here document operators.
 heredocOps :: [String]
 heredocOps = ["<<", "<<-"]
 
