@@ -41,4 +41,4 @@ library
     pretty       >= 1.0 && < 2.0,
     transformers >= 0.2 && < 0.4
 
-  ghc-options: -Wall -O2
+  ghc-options: -Wall
