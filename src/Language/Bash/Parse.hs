@@ -141,19 +141,19 @@ commandParts p = partitionEithers <$> many part
 simpleCommand :: Parser Command
 simpleCommand = do
     notFollowedBy reservedWord
-    normalCommand </> assignCommand
+    assignCommand </> normalCommand
   where
-    normalCommand = "simple command" ?: do
-        (as, rs1) <- commandParts assign
-        (ws, rs2) <- commandParts anyWord
-        guard (not $ null as && null ws)
-        return $ Command (SimpleCommand as ws) (rs1 ++ rs2)
-
     assignCommand = "assignment builtin" ?: do
         rs1 <- redirList
         w <- assignBuiltin
         (args, rs2) <- commandParts assignArg
         return $ Command (AssignBuiltin w args) (rs1 ++ rs2)
+
+    normalCommand = "simple command" ?: do
+        (as, rs1) <- commandParts assign
+        (ws, rs2) <- commandParts anyWord
+        guard (not $ null as && null ws)
+        return $ Command (SimpleCommand as ws) (rs1 ++ rs2)
 
     assignArg = Left  <$> assign
             <|> Right <$> anyWord
