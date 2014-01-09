@@ -71,7 +71,7 @@ heredoc strip end = "here document" ?: do
 -- | Parse a newline, skipping any here documents.
 newline :: Parser String
 newline = "newline" ?: do
-    _ <- char '\n'
+    _ <- operator "\n"
     u <- getState
     case postHeredoc u of
         Nothing -> return ()
