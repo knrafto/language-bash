@@ -337,9 +337,7 @@ arithCommand = Arith <$> arith
 
 -- | Parse a conditional command.
 condCommand :: Parser ShellCommand
-condCommand = Cond <$ word "[[" <*> many1 condPart <* word "]]"
-  where
-    condPart = anyWord <|> anyOperator
+condCommand = Cond <$ word "[[" <*> many1 condWord <* word "]]"
 
 -------------------------------------------------------------------------------
 -- Coprocesses
