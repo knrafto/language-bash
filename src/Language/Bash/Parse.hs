@@ -105,7 +105,7 @@ redir = normalRedir
         desc   <- optional ioDesc
         op     <- redirOperator
         target <- anyWord
-        return $ Redir
+        return Redir
             { redirDesc   = desc
             , redirOp     = op
             , redirTarget = target
@@ -116,7 +116,7 @@ redir = normalRedir
         w <- anyWord
         let delim = I.unquote w
         h <- heredoc strip delim
-        return $ Heredoc
+        return Heredoc
             { redirOp            = op
             , heredocDelim       = delim
             , heredocDelimQuoted = delim /= w
