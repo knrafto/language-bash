@@ -1,5 +1,5 @@
 name:               language-bash
-version:            0.1.0
+version:            0.2.0
 category:           Language
 license:            BSD3
 license-file:       LICENSE
@@ -10,9 +10,9 @@ build-type:         Simple
 cabal-version:      >= 1.8
 homepage:           http://github.com/knrafto/language-bash/
 bug-reports:        http://github.com/knrafto/language-bash/issues
-synopsis:           Parsing of Bash shell scripts
+synopsis:           Parsing and pretty-printing Bash shell scripts
 description:
-    A library for parsing Bash's complicated syntax.
+    A library for parsing and pretty-printing Bash shell scripts.
 
 extra-source-files:
   .gitignore
