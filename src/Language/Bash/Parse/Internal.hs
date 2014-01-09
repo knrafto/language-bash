@@ -139,10 +139,9 @@ name = (:) <$> nameStart <*> many nameLetter
 assign :: Stream s m Char => ParsecT s u m Assign
 assign = Assign <$> lvalue <*> assignOp <*> rvalue <?> "assignment"
   where
-    lvalue = LValue <$> name <*> subscript
+    lvalue = LValue <$> name <*> optional subscript
 
-    subscript = Subscript . fmap B.toString
-            <$> optional (B.span '[' ']' wordSpan)
+    subscript = B.toString <$> B.span '[' ']' wordSpan
 
     assignOp = Equals     <$ string "="
            <|> PlusEquals <$ string "+="
@@ -153,10 +152,11 @@ assign = Assign <$> lvalue <*> assignOp <*> rvalue <?> "assignment"
     arrayElems = arrayElem `surroundBy` skipArraySpace
 
     arrayElem = do
-        e <- (,) <$> subscript <* char '=' <*> word
-        case e of
-            (Subscript Nothing, "") -> empty
-            _                       -> return e
+        s <- optional (subscript <* char '=')
+        w <- word
+        case (s, w) of
+            (Nothing, "") -> empty
+            _             -> return (s, w)
 
     skipArraySpace = char '\n' `surroundBy` skipSpace
 

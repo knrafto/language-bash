@@ -1,8 +1,10 @@
 -- | Shell script types.
 module Language.Bash.Syntax
     ( -- * Syntax
-      -- ** Commands
+      -- ** Words
       Word
+    , Subscript
+      -- ** Commands
     , Command(..)
     , Redir(..)
     , IODesc(..)
@@ -17,7 +19,6 @@ module Language.Bash.Syntax
     , Pipeline(..)
       -- * Assignments
     , Assign(..)
-    , Subscript(..)
     , LValue(..)
     , AssignOp(..)
     , RValue(..)
@@ -32,6 +33,9 @@ module Language.Bash.Syntax
 
 -- | A Bash word.
 type Word = String
+
+-- | A variable subscript @[...]@.
+type Subscript = Word
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
@@ -164,12 +168,8 @@ data Pipeline = Pipeline
 data Assign = Assign LValue AssignOp RValue
     deriving (Eq, Read, Show)
 
--- | An optional subscript.
-newtype Subscript = Subscript (Maybe Word)
-    deriving (Eq, Read, Show)
-
 -- | The left side of an assignment.
-data LValue = LValue String Subscript
+data LValue = LValue String (Maybe Subscript)
     deriving (Eq, Read, Show)
 
 -- | An assignment operator.
@@ -185,7 +185,7 @@ data RValue
     -- | A simple word.
     = RValue Word
     -- | An array assignment.
-    | RArray [(Subscript, Word)]
+    | RArray [(Maybe Subscript, Word)]
     deriving (Eq, Read, Show)
 
 -- | Shell reserved words.

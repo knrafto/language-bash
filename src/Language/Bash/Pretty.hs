@@ -133,11 +133,8 @@ instance Pretty Assign where
     pretty (Assign lhs op rhs) = pretty lhs <> pretty op <> pretty rhs
 
 instance Pretty LValue where
-    pretty (LValue name sub) = text name <> pretty sub
-
-instance Pretty Subscript where
-    pretty (Subscript Nothing)  = empty
-    pretty (Subscript (Just w)) = "[" <> text w <> "]"
+    pretty (LValue name sub) =
+        text name <> pretty (fmap (\s -> "[" ++ s ++ "]") sub)
 
 instance Pretty AssignOp where
     pretty Equals     = "="
@@ -147,7 +144,7 @@ instance Pretty RValue where
     pretty (RValue w)  = text w
     pretty (RArray rs) = "(" <> hsep (map f rs) <> ")"
       where
-        f (sub, w) = pretty sub <> "=" <> text w
+        f (sub, w) = pretty (fmap (\s -> "[" ++ s ++ "]=") sub) <> text w
 
 -- | Indent by 4 columns.
 indent :: Pretty a => a -> Doc
