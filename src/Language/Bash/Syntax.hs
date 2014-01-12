@@ -9,6 +9,7 @@ module Language.Bash.Syntax
     , Command(..)
     , Redir(..)
     , IODesc(..)
+    , RedirOp(..)
     , ShellCommand(..)
     , CaseClause(..)
     , CaseTerm(..)
@@ -23,13 +24,6 @@ module Language.Bash.Syntax
     , LValue(..)
     , AssignOp(..)
     , RValue(..)
-      -- * Syntax elements
-    , reservedWords
-    , assignBuiltins
-    , redirOps
-    , heredocOps
-    , controlOps
-    , normalOps
     ) where
 
 import Text.PrettyPrint
@@ -65,31 +59,33 @@ data Redir
         { -- | An optional file descriptor.
           redirDesc   :: Maybe IODesc
           -- | The redirection operator.
-        , redirOp     :: String
+        , redirOp     :: RedirOp
           -- | The redirection target.
         , redirTarget :: Word
         }
     -- | A here document.
     | Heredoc
-        { redirOp            :: String
+        { -- | 'True' if the here document was stripped of leading tabs using
+          -- the @\<\<-@ operator.
+          heredocStrip       :: Bool
           -- | The here document delimiter.
         , heredocDelim       :: String
           -- | 'True' if the delimiter was quoted.
         , heredocDelimQuoted :: Bool
           -- | The document itself.
-        , document           :: String
+        , hereDocument       :: String
         }
     deriving (Eq, Read, Show)
 
 instance Pretty Redir where
     pretty Redir{..} =
-        pretty redirDesc <> text redirOp <> text redirTarget
+        pretty redirDesc <> pretty redirOp <> text redirTarget
     pretty Heredoc{..} =
-        text redirOp <>
+        text (if heredocStrip then "<<-" else "<<") <>
         text (if heredocDelimQuoted
               then "'" ++ heredocDelim ++ "'"
               else heredocDelim) <> "\n" <>
-        text document <> text heredocDelim <> "\n"
+        text hereDocument <> text heredocDelim <> "\n"
 
     prettyList = foldr f empty
       where
@@ -107,6 +103,33 @@ data IODesc
 instance Pretty IODesc where
     pretty (IONumber n) = int n
     pretty (IOVar n)    = "{" <> text n <> "}"
+
+-- | A redirection operator.
+data RedirOp
+    = In          -- ^ @\<@
+    | Out         -- ^ @\>@
+    | OutOr       -- ^ @\>|@
+    | Append      -- ^ @\>\>@
+    | AndOut      -- ^ @&\>@
+    | AndAppend   -- ^ @&\>\>@
+    | HereString  -- ^ @\<\<\<@
+    | InAnd       -- ^ @\<&@
+    | OutAnd      -- ^ @\>&@
+    | InOut       -- ^ @\<\>@
+    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+
+-- | A redirection operator.
+instance Pretty RedirOp where
+    pretty In         = "<"
+    pretty Out        = ">"
+    pretty OutOr      = ">|"
+    pretty Append     = ">>"
+    pretty AndOut     = "&>"
+    pretty AndAppend  = "&>>"
+    pretty HereString = "<<<"
+    pretty InAnd      = "<&"
+    pretty OutAnd     = ">&"
+    pretty InOut      = "<>"
 
 -- | A Bash command.
 data ShellCommand
@@ -190,12 +213,9 @@ instance Pretty CaseClause where
 
 -- | A case clause terminator.
 data CaseTerm
-    -- | The @;;@ operator.
-    = Break
-    -- | The @;&@ operator.
-    | FallThrough
-    -- | The @;;&@ operator.
-    | Continue
+    = Break        -- ^ @;;@
+    | FallThrough  -- ^ @;&@
+    | Continue     -- ^ @;;&@
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
 instance Pretty CaseTerm where
@@ -288,10 +308,8 @@ instance Pretty LValue where
 
 -- | An assignment operator.
 data AssignOp
-    -- | The @=@ operator.
-    = Equals
-    -- | The @+=@ operator.
-    | PlusEquals
+    = Equals      -- ^ @=@
+    | PlusEquals  -- ^ @+=@
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
 instance Pretty AssignOp where
@@ -311,39 +329,3 @@ instance Pretty RValue where
     pretty (RArray rs) = "(" <> hsep (map f rs) <> ")"
       where
         f (sub, w) = pretty (fmap (\s -> "[" ++ s ++ "]=") sub) <> text w
-
--- | Shell reserved words.
-reservedWords :: [Word]
-reservedWords =
-    [ "!", "[[", "]]", "{", "}"
-    , "if", "then", "else", "elif", "fi"
-    , "case", "esac", "for", "select", "while", "until"
-    , "in", "do", "done", "time", "function"
-    ]
-
--- | Shell assignment builtins. These builtins can take assignments as
--- arguments.
-assignBuiltins :: [Word]
-assignBuiltins =
-    [ "alias", "declare", "export", "eval"
-    , "let", "local", "readonly", "typeset"
-    ]
-
--- | Redirection operators, not including here document operators.
-redirOps :: [String]
-redirOps = [">", "<", ">>", ">|", "<>", "<<<", "<&", ">&", "&>", "&>>"]
-
--- | Here document operators.
-heredocOps :: [String]
-heredocOps = ["<<", "<<-"]
-
--- | Shell control operators.
-controlOps :: [String]
-controlOps =
-    [ "(", ")", ";;", ";&", ";;&"
-    , "|", "|&", "||", "&&", ";", "&", "\n"
-    ]
-
--- | All normal operators.
-normalOps :: [String]
-normalOps = redirOps ++ heredocOps ++ controlOps

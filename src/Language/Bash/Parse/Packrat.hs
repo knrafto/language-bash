@@ -27,7 +27,6 @@ module Language.Bash.Parse.Packrat
       -- * Operators
     , anyOperator
     , operator
-    , redirOperator
       -- * Assignments
     , assign
       -- * Arithmetic expressions
@@ -100,7 +99,7 @@ pack p s = fix $ \d ->
         _ioDesc      = result $ token >>= \case
             TIODesc desc -> return desc
             _            -> empty
-        _anyOperator = result $ I.operator normalOps <* I.skipSpace
+        _anyOperator = result $ I.operator operators <* I.skipSpace
         _assign      = result $ I.assign <* I.skipSpace
         _uncons      = case s of
             []     -> Nothing
@@ -116,6 +115,32 @@ satisfying
 satisfying a p = try $ do
     t <- a
     if p t then return t else unexpected (show t)
+
+-- | Shell reserved words.
+reservedWords :: [Word]
+reservedWords =
+    [ "!", "[[", "]]", "{", "}"
+    , "if", "then", "else", "elif", "fi"
+    , "case", "esac", "for", "select", "while", "until"
+    , "in", "do", "done", "time", "function"
+    ]
+
+-- | Shell assignment builtins. These builtins can take assignments as
+-- arguments.
+assignBuiltins :: [Word]
+assignBuiltins =
+    [ "alias", "declare", "export", "eval"
+    , "let", "local", "readonly", "typeset"
+    ]
+
+-- | All Bash operators.
+operators :: [String]
+operators =
+    [ "(", ")", ";;", ";&", ";;&"
+    , "|", "|&", "||", "&&", ";", "&", "\n"
+    , "<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"
+    , "<<", "<<-"
+    ]
 
 -- | Parse a descriptor.
 descriptor :: Stream s m Char => ParsecT s u m IODesc
@@ -167,11 +192,6 @@ anyOperator = try (rat _anyOperator) <?> "operator"
 -- | Parse a given operator.
 operator :: Monad m => String -> ParsecT D u m String
 operator op = anyOperator `satisfying` (== op) <?> op
-
--- | Parse a non-heredoc redirection operator.
-redirOperator :: Monad m => ParsecT D u m String
-redirOperator = anyOperator `satisfying` (`elem` redirOps)
-    <?> "redirection operator"
 
 -- | Parse an assignment.
 assign :: Monad m => ParsecT D u m Assign

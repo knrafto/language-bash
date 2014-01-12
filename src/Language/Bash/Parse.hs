@@ -114,19 +114,26 @@ redir = normalRedir
             }
 
     heredocRedir = do
-        (strip, op) <- heredocOperator
+        strip <- heredocOperator
         w <- anyWord
         let delim = I.unquote w
         h <- heredoc strip delim
         return Heredoc
-            { redirOp            = op
+            { heredocStrip       = strip
             , heredocDelim       = delim
             , heredocDelimQuoted = delim /= w
-            , document           = h
+            , hereDocument       = h
             }
 
-    heredocOperator = (,) False <$> operator "<<"
-                  <|> (,) True  <$> operator "<<-"
+    redirOperator = choice redirOps <?> "redirection operator"
+
+    redirOps = zipWith (\op s -> op <$ operator s)
+        [minBound .. maxBound]
+        ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+
+    heredocOperator = False <$ operator "<<"
+                  <|> True  <$ operator "<<-"
+                  <?> "here document operator"
 
 -- | Skip a list of redirections.
 redirList :: Parser [Redir]
@@ -216,7 +223,7 @@ pipelineCommand = time
 
     addRedir (Command c rs) = Command c (stderrRedir : rs)
 
-    stderrRedir = Redir (Just (IONumber 2)) ">&" "1"
+    stderrRedir = Redir (Just (IONumber 2)) OutAnd "1"
 
 -- | Parse a compound list of commands.
 compoundList :: Parser List
