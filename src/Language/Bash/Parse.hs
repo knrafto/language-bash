@@ -10,9 +10,11 @@ import           Data.Functor.Identity
 import           Text.Parsec.Char             hiding (newline)
 import           Text.Parsec.Combinator       hiding (optional)
 import           Text.Parsec.Error            (ParseError)
+import           Text.Parsec.Expr
 import           Text.Parsec.Pos
 import           Text.Parsec.Prim             hiding (parse, (<|>))
 
+import qualified Language.Bash.Cond           as Cond
 import qualified Language.Bash.Parse.Internal as I
 import           Language.Bash.Parse.Packrat
 import           Language.Bash.Syntax
@@ -337,7 +339,29 @@ arithCommand = Arith <$> arith
 
 -- | Parse a conditional command.
 condCommand :: Parser ShellCommand
-condCommand = Cond <$ word "[[" <*> many1 condWord <* word "]]"
+condCommand = Cond <$ word "[[" <*> expr <* word "]]"
+  where
+    expr = buildExpressionParser opTable term
+
+    term = word "(" *> expr <* word ")"
+       <|> Cond.Unary <$> unaryOp <*> condWord
+       <|> (condWord >>= wordTerm)
+
+    wordTerm w = Cond.Binary w <$> binaryOp <*> condWord
+             <|> pure (Cond.Unary "-n" w)
+
+    opTable =
+        [ [Prefix (Cond.Not <$ word "!")]
+        , [Infix  (Cond.And <$ operator "&&") AssocLeft]
+        , [Infix  (Cond.Or  <$ operator "||") AssocLeft]
+        ]
+
+    condWord = (anyWord <|> anyOperator) `satisfying` (/= "]]")
+           <?> "word"
+    unaryOp  = condWord `satisfying` (`elem` Cond.unaryOps)
+           <?> "unary operator"
+    binaryOp = condWord `satisfying` (`elem` Cond.binaryOps)
+           <?> "binary operator"
 
 -------------------------------------------------------------------------------
 -- Coprocesses

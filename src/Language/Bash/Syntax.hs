@@ -34,6 +34,7 @@ module Language.Bash.Syntax
 
 import Text.PrettyPrint
 
+import Language.Bash.Cond   (CondExpr)
 import Language.Bash.Pretty
 
 -- | Indent by 4 columns.
@@ -125,7 +126,7 @@ data ShellCommand
     -- | An arithmetic expression.
     | Arith String
     -- | A Bash @[[...]]@ conditional expression.
-    | Cond [Word]
+    | Cond (CondExpr Word)
     -- | A @for /word/ in /words/@ command. If @in /words/@ is absent,
     -- the word list defaults to @\"$\@\"@.
     | For Word [Word] List
@@ -158,8 +159,8 @@ instance Pretty ShellCommand where
         "{" $+$ indent l $+$ "}"
     pretty (Arith s) =
         "((" <> text s <> "))"
-    pretty (Cond ws) =
-        "[[" <+> pretty ws <+> "]]"
+    pretty (Cond e) =
+        "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
         "for" <+> text w <+> "in" <+> pretty ws <> ";" $+$ doDone l
     pretty (ArithFor s l) =

@@ -1,18 +1,21 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE
+    DeriveFunctor
+  , DeriveFoldable
+  , DeriveTraversable
+  , OverloadedStrings
+  #-}
 -- | Bash conditional commands.
 module Language.Bash.Cond
     ( CondExpr(..)
-    , parseCondExpr
     , unaryOps
     , binaryOps
     ) where
 
-import Control.Applicative
 import Data.Foldable
-import Data.Functor.Identity
 import Data.Traversable
-import Text.Parsec           hiding ((<|>), token, oneOf)
-import Text.Parsec.Expr
+import Text.PrettyPrint
+
+import Language.Bash.Pretty
 
 -- | Bash conditional expressions.
 data CondExpr a
@@ -23,56 +26,17 @@ data CondExpr a
     | Or (CondExpr a) (CondExpr a)
     deriving (Eq, Read, Show, Functor, Foldable, Traversable)
 
--- | A parser over lists of strings.
-type Parser = ParsecT [String] () Identity
+instance Pretty a => Pretty (CondExpr a) where
+    pretty = go (0 :: Int)
+      where
+        go _ (Unary op a)    = text op <+> pretty a
+        go _ (Binary a op b) = pretty a <+> text op <+> pretty b
+        go _ (Not e)         = "!" <+> go 2 e
+        go p (And e1 e2)     = paren (p > 1) $ go 1 e1 <+> "&&" <+> go 1 e2
+        go p (Or e1 e2)      = paren (p > 0) $ go 0 e1 <+> "||" <+> go 0 e2
 
--- | Parse a primitive token satisfying a predicate.
-token :: (String -> Maybe a) -> Parser a
-token f = tokenPrim show (\pos _ _ -> pos) f
-
--- | Parse any word.
-anyWord :: Parser String
-anyWord = token Just
-
--- | Parse a given word.
-word :: String -> Parser String
-word s = token (\t -> if t == s then Just s else Nothing) <?> s
-
--- | Parse a word in a list.
-oneOf :: [String] -> Parser String
-oneOf ss = token (\t -> find (== t) ss)
-
--- | Parse a conditional expression.
--- @condExpr 'True'@ parses for @[[...]]@;
--- @condExpr 'False'@ parses for @test@ (or @[@).
-condExpr :: Bool -> Parser (CondExpr String)
-condExpr test = expr <* eof
-  where
-    expr = buildExpressionParser opTable term
-
-    term = word "(" *> expr <* word ")"
-       <|> Unary <$> unaryOp <*> anyWord
-       <|> (anyWord >>= wordTerm)
-
-    wordTerm w = Binary w <$> binaryOp <*> anyWord
-             <|> pure (Unary "-n" w)
-
-    opTable =
-        [ [Prefix (Not <$ word "!")          ]
-        , [Infix  (And <$ andOp   ) AssocLeft]
-        , [Infix  (Or  <$ orOp    ) AssocLeft]
-        ]
-
-    andOp    = word (if test then "-a" else "&&")
-    orOp     = word (if test then "-o" else "||")
-    unaryOp  = oneOf unaryOps  <?> "unary operator"
-    binaryOp = oneOf binaryOps <?> "binary operator"
-
--- | Parse a conditional expression.
--- @parseCondExpr 'True'@ parses for @[[...]]@;
--- @parseCondExpr 'False'@ parses for @test@ (or @[@).
-parseCondExpr :: Bool -> [String] -> Either ParseError (CondExpr String)
-parseCondExpr test = parse (condExpr test) ""
+        paren False d = d
+        paren True d  = "(" <+> d <+> ")"
 
 -- | Unary conditional operators.
 unaryOps :: [String]

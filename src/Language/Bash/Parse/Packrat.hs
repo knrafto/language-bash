@@ -12,6 +12,8 @@ module Language.Bash.Parse.Packrat
     ( -- * Packrat parsing
       D
     , pack
+      -- * Tokens
+    , satisfying
       -- * Whitespace
     , I.skipSpace
       -- * Words
@@ -19,7 +21,6 @@ module Language.Bash.Parse.Packrat
     , word
     , reservedWord
     , unreservedWord
-    , condWord
     , assignBuiltin
     , ioDesc
     , name
@@ -141,10 +142,6 @@ reservedWord = anyWord `satisfying` (`elem` reservedWords) <?> "reserved word"
 unreservedWord :: Monad m => ParsecT D u m Word
 unreservedWord = anyWord `satisfying` (`notElem` reservedWords)
     <?> "unreserved word"
-
--- | Parse a word in a @[[...]]@ command.
-condWord :: Monad m => ParsecT D u m Word
-condWord = (anyWord <|> anyOperator) `satisfying` (/= "]]")
 
 -- | Parse an assignment builtin.
 assignBuiltin :: Monad m => ParsecT D u m Word
