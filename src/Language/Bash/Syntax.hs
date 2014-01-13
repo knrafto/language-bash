@@ -120,16 +120,9 @@ data RedirOp
 
 -- | A redirection operator.
 instance Pretty RedirOp where
-    pretty In         = "<"
-    pretty Out        = ">"
-    pretty OutOr      = ">|"
-    pretty Append     = ">>"
-    pretty AndOut     = "&>"
-    pretty AndAppend  = "&>>"
-    pretty HereString = "<<<"
-    pretty InAnd      = "<&"
-    pretty OutAnd     = ">&"
-    pretty InOut      = "<>"
+    pretty op = opNames !! fromEnum op
+      where
+        opNames = ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
 
 -- | A Bash command.
 data ShellCommand
