@@ -2,7 +2,7 @@
 -- used by the Bash builtin @declare -f@.
 module Language.Bash.Pretty
     ( Pretty(..)
-    , render
+    , prettyText
     ) where
 
 import Text.PrettyPrint
@@ -32,3 +32,7 @@ instance Pretty a => Pretty (Maybe a) where
 
 instance (Pretty a, Pretty b) => Pretty (Either a b) where
     pretty = either pretty pretty
+
+-- | Pretty-print to a 'String'.
+prettyText :: Pretty a => a -> String
+prettyText = render . pretty
