@@ -1,9 +1,4 @@
-{-# LANGUAGE
-    DeriveFunctor
-  , DeriveFoldable
-  , DeriveTraversable
-  , OverloadedStrings
-  #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- | Bash conditional commands.
 module Language.Bash.Cond
     ( CondExpr(..)
@@ -11,26 +6,24 @@ module Language.Bash.Cond
     , BinaryOp(..)
     ) where
 
-import Data.Foldable
-import Data.Traversable
 import Text.PrettyPrint
 
 import Language.Bash.Pretty
 
 -- | Bash conditional expressions.
-data CondExpr a
-    = Unary UnaryOp a
-    | Binary a BinaryOp a
-    | Not (CondExpr a)
-    | And (CondExpr a) (CondExpr a)
-    | Or (CondExpr a) (CondExpr a)
-    deriving (Eq, Read, Show, Functor, Foldable, Traversable)
+data CondExpr
+    = Unary UnaryOp String
+    | Binary String BinaryOp String
+    | Not CondExpr
+    | And CondExpr CondExpr
+    | Or CondExpr CondExpr
+    deriving (Eq, Read, Show)
 
-instance Pretty a => Pretty (CondExpr a) where
+instance Pretty CondExpr where
     pretty = go (0 :: Int)
       where
-        go _ (Unary op a)    = pretty op <+> pretty a
-        go _ (Binary a op b) = pretty a <+> pretty op <+> pretty b
+        go _ (Unary op a)    = pretty op <+> text a
+        go _ (Binary a op b) = text a <+> pretty op <+> text b
         go _ (Not e)         = "!" <+> go 2 e
         go p (And e1 e2)     = paren (p > 1) $ go 1 e1 <+> "&&" <+> go 1 e2
         go p (Or e1 e2)      = paren (p > 0) $ go 0 e1 <+> "||" <+> go 0 e2

@@ -142,7 +142,7 @@ data ShellCommand
     -- | An arithmetic expression.
     | Arith String
     -- | A Bash @[[...]]@ conditional expression.
-    | Cond (CondExpr Word)
+    | Cond CondExpr
     -- | A @for /word/ in /words/@ command. If @in /words/@ is absent,
     -- the word list defaults to @\"$\@\"@.
     | For Word [Word] List
