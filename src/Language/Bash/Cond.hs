@@ -19,8 +19,8 @@ import Language.Bash.Pretty
 
 -- | Bash conditional expressions.
 data CondExpr a
-    = Unary String a
-    | Binary a String a
+    = Unary UnaryOp a
+    | Binary a BinaryOp a
     | Not (CondExpr a)
     | And (CondExpr a) (CondExpr a)
     | Or (CondExpr a) (CondExpr a)

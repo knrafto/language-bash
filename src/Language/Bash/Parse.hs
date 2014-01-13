@@ -44,6 +44,14 @@ p </> q = try p <|> q
 (?:) :: String -> ParsecT s u m a -> ParsecT s u m a
 (?:) = flip (<?>)
 
+-- | Parse a bounded enumeration.
+boundedEnum
+    :: (Stream s m t, Bounded a, Enum a)
+    => (b -> ParsecT s u m c)
+    -> [b]
+    -> ParsecT s u m a
+boundedEnum p = choice . zipWith (\a b -> a <$ p b) [minBound .. maxBound]
+
 -- | Get the next line of input.
 line :: Parser String
 line = lookAhead anyChar *> many (satisfy (/= '\n')) <* optional (char '\n')
@@ -125,11 +133,9 @@ redir = normalRedir
             , hereDocument       = h
             }
 
-    redirOperator = choice redirOps <?> "redirection operator"
-
-    redirOps = zipWith (\op s -> op <$ operator s)
-        [minBound .. maxBound]
-        ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+    redirOperator = boundedEnum operator
+                    ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+                <?> "redirection operator"
 
     heredocOperator = False <$ operator "<<"
                   <|> True  <$ operator "<<-"
@@ -355,7 +361,7 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
        <|> (condWord >>= wordTerm)
 
     wordTerm w = Cond.Binary w <$> binaryOp <*> condWord
-             <|> pure (Cond.Unary "-n" w)
+             <|> pure (Cond.Unary Cond.NonzeroString w)
 
     opTable =
         [ [Prefix (Cond.Not <$ word "!")]
@@ -363,12 +369,25 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
         , [Infix  (Cond.Or  <$ operator "||") AssocLeft]
         ]
 
-    condWord = (anyWord <|> anyOperator) `satisfying` (/= "]]")
-           <?> "word"
-    unaryOp  = condWord `satisfying` (`elem` Cond.unaryOps)
-           <?> "unary operator"
-    binaryOp = condWord `satisfying` (`elem` Cond.binaryOps)
+    condWord = (anyWord <|> anyOperator) `satisfying` (/= "]]") <?> "word"
+
+    condOperator op = condWord `satisfying` (== op) <?> op
+
+    unaryOp = boundedEnum condOperator opNames
+          <|> Cond.FileExists   <$ condOperator "-a"
+          <|> Cond.SymbolicLink <$ condOperator "-h"
+          <?> "unary operator"
+      where
+        opNames = map (\c -> ['-', c]) "bcdefgkprstuwxGLNOSovzn"
+
+    binaryOp = boundedEnum condOperator opNames
+           <|> Cond.StrEQ <$ condOperator "="
            <?> "binary operator"
+      where
+        opNames = [ "-ef", "-nt", "-ot"
+                  , "=~", "==", "!=", "<", ">"
+                  , "-eq", "-ne", "-lt", "-le", "-gt", "-ge"
+                  ]
 
 -------------------------------------------------------------------------------
 -- Coprocesses
