@@ -282,10 +282,7 @@ caseCommand = Case <$ word "case"
           <*  operator ")"
           <?> "pattern list"
 
-    clauseTerm = Break       <$ operator ";;"
-             <|> FallThrough <$ operator ";&"
-             <|> Continue    <$ operator ";;&"
-             <?> "case clause terminator"
+    clauseTerm = selectOperator operator <?> "case clause terminator"
 
 -- | Parse a @while@ command.
 whileCommand :: Parser ShellCommand

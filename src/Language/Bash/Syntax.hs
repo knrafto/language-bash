@@ -214,10 +214,11 @@ data CaseTerm
     | Continue     -- ^ @;;&@
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
+instance Operator CaseTerm where
+    operatorTable = zip [minBound .. maxBound] [";;", ";&", ";;&"]
+
 instance Pretty CaseTerm where
-    pretty Break       = ";;"
-    pretty FallThrough = ";&"
-    pretty Continue    = ";;&"
+    pretty = prettyOperator
 
 -- | A compound list of statements.
 newtype List = List [Statement]
@@ -247,9 +248,15 @@ data ListTerm
     | Asynchronous
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
+instance Operator ListTerm where
+    operatorTable =
+        [ (Sequential  , ";" )
+        , (Sequential  , "\n")
+        , (Asynchronous, "&" )
+        ]
+
 instance Pretty ListTerm where
-    pretty Sequential   = ";"
-    pretty Asynchronous = "&"
+    pretty = prettyOperator
 
 -- | A right-associative list of pipelines.
 data AndOr
@@ -308,9 +315,11 @@ data AssignOp
     | PlusEquals  -- ^ @+=@
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
+instance Operator AssignOp where
+    operatorTable = [(Equals, "="), (PlusEquals, "+=")]
+
 instance Pretty AssignOp where
-    pretty Equals     = "="
-    pretty PlusEquals = "+="
+    pretty = prettyOperator
 
 -- | The right side of an assignment.
 data RValue
