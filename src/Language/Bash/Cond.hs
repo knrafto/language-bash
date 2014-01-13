@@ -8,6 +8,7 @@ module Language.Bash.Cond
 
 import Text.PrettyPrint
 
+import Language.Bash.Operator
 import Language.Bash.Pretty
 
 -- | Bash conditional expressions.
@@ -58,10 +59,16 @@ data UnaryOp
     | NonzeroString  -- ^ @-n /string/@ or @/string/@
     deriving (Eq, Ord, Read, Show, Enum, Bounded)
 
+instance Operator UnaryOp where
+    operatorTable =
+        zip [minBound .. maxBound]
+            (map (\c -> ['-', c]) "bcdefgkprstuwxGLNOSovzn") ++
+        [ (FileExists  , "-a")
+        , (SymbolicLink, "-h")
+        ]
+
 instance Pretty UnaryOp where
-    pretty op = text ['-', opNames !! fromEnum op]
-      where
-        opNames = "bcdefgkprstuwxGLNOSovzn"
+    pretty = prettyOperator
 
 -- | Binary conditional operators.
 data BinaryOp
@@ -81,10 +88,14 @@ data BinaryOp
     | ArithGE    -- ^ @-ge@
     deriving (Eq, Ord, Read, Show, Enum, Bounded)
 
+instance Operator BinaryOp where
+    operatorTable =
+        zip [minBound .. maxBound]
+            [ "-ef", "-nt", "-ot"
+            , "=~", "==", "!=", "<", ">"
+            , "-eq", "-ne", "-lt", "-le", "-gt", "-ge"
+            ] ++
+        [ (StrEQ, "=") ]
+
 instance Pretty BinaryOp where
-    pretty op = opNames !! fromEnum op
-      where
-        opNames = [ "-ef", "-nt", "-ot"
-                  , "=~", "==", "!=", "<", ">"
-                  , "-eq", "-ne", "-lt", "-le", "-gt", "-ge"
-                  ]
+    pretty = prettyOperator

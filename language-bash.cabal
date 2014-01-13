@@ -33,6 +33,7 @@ library
     Language.Bash.Syntax
 
   other-modules:
+    Language.Bash.Operator
     Language.Bash.Parse.Internal
     Language.Bash.Parse.Packrat
 

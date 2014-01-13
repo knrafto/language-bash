@@ -15,6 +15,7 @@ import           Text.Parsec.Pos
 import           Text.Parsec.Prim             hiding (parse, (<|>))
 
 import qualified Language.Bash.Cond           as Cond
+import           Language.Bash.Operator
 import qualified Language.Bash.Parse.Internal as I
 import           Language.Bash.Parse.Packrat
 import           Language.Bash.Syntax
@@ -43,14 +44,6 @@ p </> q = try p <|> q
 -- | Name a parser from the front.
 (?:) :: String -> ParsecT s u m a -> ParsecT s u m a
 (?:) = flip (<?>)
-
--- | Parse a bounded enumeration.
-boundedEnum
-    :: (Stream s m t, Bounded a, Enum a)
-    => (b -> ParsecT s u m c)
-    -> [b]
-    -> ParsecT s u m a
-boundedEnum p = choice . zipWith (\a b -> a <$ p b) [minBound .. maxBound]
 
 -- | Get the next line of input.
 line :: Parser String
@@ -133,8 +126,7 @@ redir = normalRedir
             , hereDocument       = h
             }
 
-    redirOperator = boundedEnum operator
-                    ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+    redirOperator = selectOperator word
                 <?> "redirection operator"
 
     heredocOperator = False <$ operator "<<"
@@ -373,21 +365,8 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
 
     condOperator op = condWord `satisfying` (== op) <?> op
 
-    unaryOp = boundedEnum condOperator opNames
-          <|> Cond.FileExists   <$ condOperator "-a"
-          <|> Cond.SymbolicLink <$ condOperator "-h"
-          <?> "unary operator"
-      where
-        opNames = map (\c -> ['-', c]) "bcdefgkprstuwxGLNOSovzn"
-
-    binaryOp = boundedEnum condOperator opNames
-           <|> Cond.StrEQ <$ condOperator "="
-           <?> "binary operator"
-      where
-        opNames = [ "-ef", "-nt", "-ot"
-                  , "=~", "==", "!=", "<", ">"
-                  , "-eq", "-ne", "-lt", "-le", "-gt", "-ge"
-                  ]
+    unaryOp  = selectOperator condOperator <?> "unary operator"
+    binaryOp = selectOperator condOperator <?> "binary operator"
 
 -------------------------------------------------------------------------------
 -- Coprocesses

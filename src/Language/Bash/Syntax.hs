@@ -28,7 +28,8 @@ module Language.Bash.Syntax
 
 import Text.PrettyPrint
 
-import Language.Bash.Cond   (CondExpr)
+import Language.Bash.Cond     (CondExpr)
+import Language.Bash.Operator
 import Language.Bash.Pretty
 
 -- | Indent by 4 columns.
@@ -118,11 +119,13 @@ data RedirOp
     | InOut       -- ^ @\<\>@
     deriving (Eq, Ord, Read, Show, Enum, Bounded)
 
+instance Operator RedirOp where
+    operatorTable = zip [minBound .. maxBound]
+        ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+
 -- | A redirection operator.
 instance Pretty RedirOp where
-    pretty op = opNames !! fromEnum op
-      where
-        opNames = ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+    pretty = prettyOperator
 
 -- | A Bash command.
 data ShellCommand
