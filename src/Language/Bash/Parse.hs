@@ -15,8 +15,8 @@ import           Text.Parsec.Pos
 import           Text.Parsec.Prim             hiding (parse, (<|>))
 
 import qualified Language.Bash.Cond           as Cond
+import           Language.Bash.Expand         (unquote)
 import           Language.Bash.Operator
-import qualified Language.Bash.Parse.Internal as I
 import           Language.Bash.Parse.Packrat
 import           Language.Bash.Syntax
 
@@ -117,7 +117,7 @@ redir = normalRedir
     heredocRedir = do
         strip <- heredocOperator
         w <- anyWord
-        let delim = I.unquote w
+        let delim = unquote w
         h <- heredoc strip delim
         return Heredoc
             { heredocStrip       = strip

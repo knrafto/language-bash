@@ -1,6 +1,7 @@
 -- | Bash brace and sequence expansions.
 module Language.Bash.Expand
     ( braceExpand
+    , unquote
     ) where
 
 import           Control.Applicative
@@ -10,7 +11,7 @@ import           Data.Traversable
 import           Text.Parsec                  hiding ((<|>), optional)
 
 import qualified Language.Bash.Parse.Builder  as B
-import           Language.Bash.Parse.Internal (gobble)
+import           Language.Bash.Parse.Internal
 import           Language.Bash.Syntax
 
 -- | Pad a number to a specified width
@@ -92,3 +93,23 @@ braceExpand w = case parse (brace "") "" w of
         render = if isPadded a || isPadded b
                  then showPadded width
                  else show
+
+-- | Unquote a word.
+unquote :: String -> String
+unquote s = case parse unquoteBare s s of
+    Left _   -> s
+    Right s' -> B.toString s'
+  where
+    unquoteBare = B.many $
+            try unquoteEscape
+        <|> try unquoteSingle
+        <|> try unquoteDouble
+        <|> try unquoteAnsi
+        <|> try unquoteLocale
+        <|> B.anyChar
+
+    unquoteEscape = char '\\' *> B.anyChar
+    unquoteSingle = B.span '\'' '\'' empty
+    unquoteDouble = B.span '\"' '\"' unquoteEscape
+    unquoteAnsi   = char '$' *> B.span '\'' '\'' unquoteEscape
+    unquoteLocale = char '$' *> unquoteDouble

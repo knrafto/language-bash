@@ -8,7 +8,6 @@ module Language.Bash.Parse.Internal
     , name
     , assign
     , operator
-    , unquote
     ) where
 
 import           Control.Applicative
@@ -176,23 +175,3 @@ operator ops = go ops <?> "operator"
         (c :) <$> go (prefix c xs)
 
     prefix c = map tail . filter (\x -> not (null x) && head x == c)
-
--- | Unquote a word.
-unquote :: String -> String
-unquote s = case parse unquoteBare s s of
-    Left _   -> s
-    Right s' -> B.toString s'
-  where
-    unquoteBare = B.many $
-            try unquoteEscape
-        <|> try unquoteSingle
-        <|> try unquoteDouble
-        <|> try unquoteAnsi
-        <|> try unquoteLocale
-        <|> B.anyChar
-
-    unquoteEscape = char '\\' *> B.anyChar
-    unquoteSingle = B.span '\'' '\'' empty
-    unquoteDouble = B.span '\"' '\"' unquoteEscape
-    unquoteAnsi   = char '$' *> B.span '\'' '\'' unquoteEscape
-    unquoteLocale = char '$' *> unquoteDouble
