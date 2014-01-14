@@ -1,11 +1,15 @@
+{-# LANGUAGE PatternGuards #-}
 -- | Bash expansions.
 module Language.Bash.Expand
     ( braceExpand
+    , TildePrefix(..)
+    , tildePrefix
     , splitWord
     , unquote
     ) where
 
 import           Control.Applicative
+import           Control.Monad
 import           Data.Char
 import           Data.Monoid
 import           Data.Traversable
@@ -28,6 +32,21 @@ showPadded w n
     | otherwise = replicate (w - length s) '0' ++ s
   where
     s = show n
+
+-- | Read a number.
+fromNumber :: MonadPlus m => String -> m Int
+fromNumber s = case s of
+    '+':s' -> readNumber s'
+    _      -> readNumber s
+  where
+    readNumber t = case reads t of
+        [(n,"")] -> return n
+        _        -> mzero
+
+-- | Read a character.
+fromAlpha :: MonadPlus m => String -> m Char
+fromAlpha [c] | isAlpha c = return c
+fromAlpha _               = mzero
 
 -- | Create a list from a start value, an end value, and an increment.
 enum :: (Ord a, Enum a) => a -> a -> Maybe Int -> [a]
@@ -58,17 +77,6 @@ braceExpand = parseWord "braceExpand" (map B.toString <$> brace "")
     concatParts []   = [B.fromString "{}"]
     concatParts [xs] = map (\x -> B.fromChar '{' <> x <> B.fromChar '}') xs
     concatParts xss  = concat xss
-
-    fromNumber s = case s of
-        '+':s' -> readNumber s'
-        _      -> readNumber s
-      where
-        readNumber t = case reads t of
-            [(n,"")] -> return (n :: Int)
-            _        -> fail "not a number"
- 
-    fromAlpha [c] | isAlpha c = return c
-    fromAlpha _               = fail "not a character"
  
     sequenceExpansion = do
         a   <- sequencePart
@@ -98,6 +106,35 @@ braceExpand = parseWord "braceExpand" (map B.toString <$> brace "")
         render = if isPadded a || isPadded b
                  then showPadded width
                  else show
+
+-- | A Bash tilde prefix of a word.
+data TildePrefix
+    = Home             -- ^ '~/foo'
+    | UserHome String  -- ^ '~fred/foo'
+    | PWD              -- ^ '~+/foo'
+    | OldPWD           -- ^ '~-/foo'
+    | Dirs Int         -- ^ '~N', '~+N', '~-N'
+    deriving (Eq, Read, Show)
+
+-- | Get the tilde prefix of a word, if there is one. The remaining word
+-- may be empty.
+tildePrefix :: Word -> (Maybe TildePrefix, Word)
+tildePrefix w = case parse tilde "" w of
+    Left _        -> (Nothing, w)
+    Right (p, w') -> (Just p, w')
+  where
+    tilde = do
+        _ <- char '~'
+        s <- B.toString <$> gobble "/"
+        r <- getInput
+        return (readTilde s, r)
+
+    readTilde s
+        | s == ""                = Home
+        | s == "+"               = PWD
+        | s == "-"               = OldPWD
+        | Just n <- fromNumber s = Dirs n
+        | otherwise              = UserHome s
 
 -- | Split a word into parts based on a the specified delimiters.
 splitWord :: [Char] -> Word -> [Word]
