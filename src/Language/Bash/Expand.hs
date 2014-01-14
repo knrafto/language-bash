@@ -108,7 +108,7 @@ splitWord ifs = parseWord "splitWord" (map B.toString <$> go)
         [] <$ eof <|> (:) <$> gobble ifs <*> go
 
 -- | Unquote a word.
-unquote :: String -> String
+unquote :: Word -> String
 unquote s = case parse unquoteBare s s of
     Left _   -> s
     Right s' -> B.toString s'
