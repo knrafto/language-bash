@@ -150,12 +150,10 @@ binaryExpr = Binary <$> anyWord <*> select word binaryOps <*> anyWord
 
 -- | Parse a binary @-a@ or @-o@ expression.
 binaryAndOrExpr :: Parser CondExpr
-binaryAndOrExpr = do
-    e1 <- nullaryExpr
-    op <- And <$ word "-a"
-      <|> Or  <$ word "-o"
-    e2 <- nullaryExpr
-    return $ op e1 e2
+binaryAndOrExpr = nullaryExpr <**> andOrOp <*> nullaryExpr
+  where
+    andOrOp = And <$ word "-a"
+          <|> Or  <$ word "-o"
 
 -- | Parse a conditional expression.
 condExpr :: Parser CondExpr

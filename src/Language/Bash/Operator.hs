@@ -7,6 +7,7 @@ module Language.Bash.Operator
     ) where
 
 import Control.Applicative
+import Data.Foldable
 import Text.PrettyPrint     hiding (empty)
 
 import Language.Bash.Pretty
@@ -17,7 +18,7 @@ class Eq a => Operator a where
 
 -- | Select the first element that succeeds from a table.
 select :: Alternative f => (b -> f c) -> [(a, b)] -> f a
-select p = foldr (<|>) empty . map (\(a, b) -> a <$ p b)
+select p = asum . map (\(a, b) -> a <$ p b)
 
 -- | Select an operator from the 'String' it represents.
 selectOperator :: (Alternative f, Operator a) => (String -> f c) -> f a
