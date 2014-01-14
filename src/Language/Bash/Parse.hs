@@ -126,7 +126,7 @@ redir = normalRedir
             , hereDocument       = h
             }
 
-    redirOperator = selectOperator word
+    redirOperator = selectOperator operator
                 <?> "redirection operator"
 
     heredocOperator = False <$ operator "<<"
