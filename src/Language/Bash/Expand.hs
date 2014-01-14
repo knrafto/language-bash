@@ -1,6 +1,7 @@
--- | Bash brace and sequence expansions.
+-- | Bash expansions.
 module Language.Bash.Expand
     ( braceExpand
+    , splitWord
     , unquote
     ) where
 
@@ -13,6 +14,12 @@ import           Text.Parsec                  hiding ((<|>), optional)
 import qualified Language.Bash.Parse.Builder  as B
 import           Language.Bash.Parse.Internal
 import           Language.Bash.Syntax
+
+-- | Parse a word with a parser that should always succeed.
+parseWord :: String -> Parsec String () a -> String -> a
+parseWord fname p s = case parse p s s of
+    Left  e -> error $ "Language.Bash.Expand." ++ fname ++ ": " ++ show e
+    Right r -> r
 
 -- | Pad a number to a specified width
 showPadded :: Int -> Int -> String
@@ -33,9 +40,7 @@ enum x y inc = map toEnum [fromEnum x, fromEnum x + step .. fromEnum y]
 
 -- | Brace expand a word, including sequences.
 braceExpand :: Word -> [Word]
-braceExpand w = case parse (brace "") "" w of
-    Left  _  -> [w]
-    Right r -> map B.toString r
+braceExpand = parseWord "braceExpand" (map B.toString <$> brace "")
   where
     brace delims = try (expansion delims)
                <|> return <$> gobble delims
@@ -93,6 +98,14 @@ braceExpand w = case parse (brace "") "" w of
         render = if isPadded a || isPadded b
                  then showPadded width
                  else show
+
+-- | Split a word into parts based on a the specified delimiters.
+splitWord :: [Char] -> Word -> [Word]
+splitWord ifs = parseWord "splitWord" (map B.toString <$> go)
+  where
+    go = do
+        skipMany (oneOf ifs)
+        [] <$ eof <|> (:) <$> gobble ifs <*> go
 
 -- | Unquote a word.
 unquote :: String -> String
