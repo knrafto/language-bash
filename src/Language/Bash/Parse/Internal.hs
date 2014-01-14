@@ -2,6 +2,7 @@
 -- | Low-level parsers.
 module Language.Bash.Parse.Internal
     ( skipSpace
+    , gobble
     , word
     , arith
     , name
@@ -117,12 +118,13 @@ wordSpan = mempty <$ try (string "\\\n")
        <|> dollar
        <|> try processSubst
 
+-- | Gobble a word until a delimeter is found.
+gobble :: Stream s m Char => [Char] -> ParsecT s u m Builder
+gobble delims = B.many $ wordSpan <|> B.noneOf delims
+
 -- | Parse a word.
 word :: Stream s m Char => ParsecT s u m String
-word = B.toString <$> B.many wordPart <?> "word"
-  where
-    wordPart = wordSpan
-           <|> B.noneOf " \t\n|&;()<>"
+word = B.toString <$> gobble " \t\n|&;()<>" <?> "word"
 
 -- | Parse an arithmetic expression.
 arith :: Stream s m Char => ParsecT s u m String
