@@ -4,9 +4,15 @@ module Language.Bash.Cond
     ( CondExpr(..)
     , UnaryOp(..)
     , BinaryOp(..)
+    , parseTestExpr
     ) where
 
-import Text.PrettyPrint
+import Prelude                hiding (negate)
+
+import Control.Applicative
+import Text.Parsec            hiding ((<|>), token)
+import Text.Parsec.Expr       hiding (Operator)
+import Text.PrettyPrint       hiding (parens)
 
 import Language.Bash.Operator
 import Language.Bash.Pretty
@@ -99,3 +105,98 @@ instance Operator BinaryOp where
 
 instance Pretty BinaryOp where
     pretty = prettyOperator
+
+-- | A parser over lists of strings.
+type Parser = Parsec [String] ()
+
+-- | Parse a token.
+token :: (String -> Maybe a) -> Parser a
+token = tokenPrim show (\pos _ _ -> pos)
+
+-- | Parse a specific word.
+word :: String -> Parser String
+word s = token (\t -> if t == s then Just s else Nothing) <?> s
+
+-- | Parse any word.
+anyWord :: Parser String
+anyWord = token Just
+
+-- | Parse in parentheses.
+parens :: Parser a -> Parser a
+parens p = word "(" *> p <* word ")"
+
+-- | Parse a nullary expression
+nullaryExpr :: Parser CondExpr
+nullaryExpr = Unary NonzeroString <$> anyWord
+
+-- | Parse a unary expression.
+unaryExpr :: Parser CondExpr
+unaryExpr = Unary <$> select word unaryOps <*> anyWord
+        <?> "unary expression"
+  where
+    unaryOps = filter ((`notElem` ["-a", "-o"]) . snd) operatorTable
+
+-- | Parse a standalone unary expression.
+standaloneUnaryExpr :: Parser CondExpr
+standaloneUnaryExpr = Unary <$> selectOperator word <*> anyWord
+                  <?> "unary expression"
+
+-- | Parse a binary expression.
+binaryExpr :: Parser CondExpr
+binaryExpr = Binary <$> anyWord <*> select word binaryOps <*> anyWord
+         <?> "binary expression"
+  where
+    binaryOps = filter ((/= "=~") . snd) operatorTable
+
+-- | Parse a binary @-a@ or @-o@ expression.
+binaryAndOrExpr :: Parser CondExpr
+binaryAndOrExpr = do
+    e1 <- nullaryExpr
+    op <- And <$ word "-a"
+      <|> Or  <$ word "-o"
+    e2 <- nullaryExpr
+    return $ op e1 e2
+
+-- | Parse a conditional expression.
+condExpr :: Parser CondExpr
+condExpr = expr
+  where
+    expr = buildExpressionParser opTable term
+
+    term = parens expr
+       <|> unaryExpr
+       <|> try binaryExpr
+       <|> nullaryExpr
+
+    opTable =
+        [ [Prefix (Not <$ word "!")]
+        , [Infix  (And <$ word "-a") AssocLeft]
+        , [Infix  (Or  <$ word "-o") AssocLeft]
+        ]
+
+-- | Parse a conditional expression for the Bash @test@ builtin.
+parseTestExpr :: [String] -> Either ParseError CondExpr
+parseTestExpr args = parse (testExpr <* eof) "" args
+  where
+    testExpr = case length args of
+        0 -> fail "no arguments"
+        1 -> oneArg
+        2 -> twoArg
+        3 -> threeArg
+        4 -> fourArg
+        _ -> condExpr
+
+    oneArg = nullaryExpr
+
+    twoArg = negate nullaryExpr
+         <|> standaloneUnaryExpr
+
+    threeArg = try binaryExpr
+           <|> try binaryAndOrExpr
+           <|> negate twoArg
+           <|> parens nullaryExpr
+
+    fourArg = negate threeArg
+          <|> condExpr
+
+    negate p = Not <$ word "!" <*> p
