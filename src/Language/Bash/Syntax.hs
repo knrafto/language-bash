@@ -292,7 +292,7 @@ instance Pretty Pipeline where
         (if timed      then "time" else empty) <+>
         (if timedPosix then "-p"   else empty) <+>
         (if inverted   then "!"    else empty) <+>
-        pretty commands
+        hcat (punctuate " | " (map pretty commands))
 
 -- | An assignment.
 data Assign = Assign LValue AssignOp RValue
