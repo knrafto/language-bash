@@ -11,6 +11,7 @@ module Language.Bash.Expand
 import           Control.Applicative
 import           Control.Monad
 import           Data.Char
+import           Data.List
 import           Data.Monoid
 import           Data.Traversable
 import           Text.Parsec                  hiding ((<|>), optional)
@@ -18,6 +19,18 @@ import           Text.Parsec                  hiding ((<|>), optional)
 import qualified Language.Bash.Parse.Builder  as B
 import           Language.Bash.Parse.Internal
 import           Language.Bash.Syntax
+
+-- | @upTo n p@ parses zero to @n@ occurences of @p@.
+upTo :: Alternative f => Int -> f a -> f [a]
+upTo m p = go m
+  where
+    go n | n < 0     = empty
+         | n == 0    = pure []
+         | otherwise = (:) <$> p <*> go (n - 1) <|> pure []
+
+-- | @upTo1 n p@ parses one to @n@ occurences of @p@.
+upTo1 :: Alternative f => Int -> f a -> f [a]
+upTo1 n p = (:) <$> p <*> upTo (n - 1) p
 
 -- | Parse a word with a parser that should always succeed.
 parseWord :: String -> Parsec String () a -> String -> a
@@ -161,5 +174,38 @@ unquote s = case parse unquoteBare s s of
     unquoteEscape = char '\\' *> B.anyChar
     unquoteSingle = B.span '\'' '\'' empty
     unquoteDouble = B.span '\"' '\"' unquoteEscape
-    unquoteAnsi   = char '$' *> B.span '\'' '\'' unquoteEscape
+    unquoteAnsi   = char '$' *> B.span '\'' '\'' (try ansiEscape)
     unquoteLocale = char '$' *> unquoteDouble
+
+    ansiEscape = B.fromChar <$ char '\\' <*> escapeCode
+
+    escapeCode = charCodes
+             <|> char 'x' *> hex 2
+             <|> char 'u' *> hex 4
+             <|> char 'U' *> hex 8
+             <|> oct 3
+             <|> char 'c' *> ctrlCodes
+
+    charCodes = codes "abeEfnrtv\\\'\"" "\a\b\ESC\ESC\f\n\r\t\v\\\'\""
+
+    ctrlCodes = '\FS' <$ try (string "\\\\")
+            <|> codes "@ABCDEFGHIJKLMOPQRSTUVWXYZ[]^_?"
+                      ("\NUL\SOH\STX\ETX\EOT\ENQ\ACK\BEL\BS\HT\LF\VT\FF" ++
+                       "\CR\SO\SI\DLE\DC1\DC2\DC3\DC4\NAK\SYN\ETB\CAN\EM" ++
+                       "\SUB\ESC\GS\RS\US\DEL")
+
+    codes chars replacements = do
+        c <- anyChar
+        case lookup c table of
+            Nothing -> unexpected [c]
+            Just c' -> return c'
+      where
+        table = zip chars replacements
+
+    oct n = number n 8 octDigit
+    hex n = number n 16 hexDigit
+
+    number maxDigits base baseDigit = do
+        digits <- map digitToInt <$> upTo1 maxDigits baseDigit
+        let n = foldl' (\x d -> base*x + d) 0 digits
+        return $ if n > ord maxBound then '\0' else chr n  -- arbitrary
