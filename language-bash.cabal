@@ -33,6 +33,7 @@ library
     Language.Bash.Pattern
     Language.Bash.Pretty
     Language.Bash.Syntax
+    Language.Bash.Word
 
   other-modules:
     Language.Bash.Operator
