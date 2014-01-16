@@ -239,12 +239,12 @@ instance Pretty Direction where
 
 -- | A process substitution.
 data ProcessSubstOp
-    = In   -- ^ @\<@
-    | Out  -- ^ @\>@
+    = ProcessIn   -- ^ @\<@
+    | ProcessOut  -- ^ @\>@
     deriving (Eq, Ord, Read, Show, Enum, Bounded)
 
 instance Operator ProcessSubstOp where
-    operatorTable = zip [In, Out] ["<", ">"]
+    operatorTable = zip [ProcessIn, ProcessOut] ["<", ">"]
 
 instance Pretty ProcessSubstOp where
     pretty = prettyOperator
