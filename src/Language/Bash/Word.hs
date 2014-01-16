@@ -7,8 +7,9 @@ module Language.Bash.Word
     , Span(..)
       -- * Parameters
     , Parameter(..)
-    , ParameterSubst(..)
+    , ParamSubst(..)
     , AltOp(..)
+    , LetterCaseOp(..)
     , Direction(..)
       -- * Process
     , ProcessSubstOp(..)
@@ -42,7 +43,7 @@ data Span
       -- To extract the command string, 'unquote' the word inside.
     | Backquote Word
       -- | A parameter substitution.
-    | ParameterSubst ParameterSubst
+    | ParamSubst ParamSubst
       -- | An arithmetic substitution.
     | ArithSubst String
       -- | A command substitution.
@@ -59,7 +60,7 @@ instance Pretty Span where
     pretty (ANSIC w)          = "$\'" <> pretty w <> "\'"
     pretty (Locale w)         = "$\"" <> pretty w <> "\""
     pretty (Backquote w)      = "`" <> pretty w <> "`"
-    pretty (ParameterSubst s) = pretty s
+    pretty (ParamSubst s)     = pretty s
     pretty (ArithSubst s)     = "$((" <> text s <> "))"
     pretty (CommandSubst s)   = "$(" <> text s <> ")"
     pretty (ProcessSubst c s) = pretty c <> "(" <> text s <> ")"
@@ -76,11 +77,9 @@ instance Pretty Parameter where
         subscript Nothing  = empty
         subscript (Just w) = "[" <> pretty w <> "]"
 
-data ParameterSubst
-      -- | An ill-formed substitution.
-    = BadSubst String
+data ParamSubst
       -- | A substitution with no braces.
-    | Bare
+    = Bare
         { -- ^ The parameter to substitute.
           parameter         :: Parameter
         }
@@ -129,8 +128,8 @@ data ParameterSubst
     | Delete
         { indirect          :: Bool
         , parameter         :: Parameter
-          -- ^ Replace the shortest match instead of the longest match.
-        , shortest          :: Bool
+          -- ^ Replace the longest match instead of the shortest match.
+        , longest           :: Bool
           -- ^ Where to delete from.
         , deleteDirection   :: Direction
           -- ^ The replacement pattern.
@@ -151,9 +150,9 @@ data ParameterSubst
         { indirect          :: Bool
         , parameter         :: Parameter
           -- ^ Convert to lowercase, not uppercase.
-        , toLower           :: Bool
-          -- ^ Convert only the starts of words.
-        , startCase         :: Bool
+        , letterCaseOp      :: LetterCaseOp
+          -- ^ Convert all characters, not only the starts of words.
+        , convertAll        :: Bool
         , pattern           :: Word
         }
     deriving (Eq, Read, Show)
@@ -162,12 +161,11 @@ prettyParameter :: Bool -> Parameter -> Doc -> Doc
 prettyParameter bang param suffix =
     "${" <> (if bang then "!" else empty) <> pretty param <> suffix <> "}"
 
-twiceUnless :: Bool -> Doc -> Doc
-twiceUnless False d = d
-twiceUnless True  d = d <> d
+twiceWhen :: Bool -> Doc -> Doc
+twiceWhen False d = d
+twiceWhen True  d = d <> d
 
-instance Pretty ParameterSubst where
-    pretty (BadSubst s)   = text s
+instance Pretty ParamSubst where
     pretty Bare{..}       = "$" <> pretty parameter
     pretty Brace{..}      = prettyParameter indirect parameter empty
     pretty Alt{..}        = prettyParameter indirect parameter $
@@ -181,7 +179,7 @@ instance Pretty ParameterSubst where
     pretty Indices{..}    = prettyParameter True parameter empty
     pretty Length{..}     = "${#" <> pretty parameter <> "}"
     pretty Delete{..}     = prettyParameter indirect parameter $
-        twiceUnless shortest (pretty deleteDirection) <>
+        twiceWhen longest (pretty deleteDirection) <>
         pretty pattern
     pretty Replace{..}    = prettyParameter indirect parameter $
         "/" <>
@@ -191,7 +189,7 @@ instance Pretty ParameterSubst where
         "/" <>
         pretty replacement
     pretty LetterCase{..} = prettyParameter indirect parameter $
-        twiceUnless startCase (if toLower then "," else "^") <>
+        twiceWhen convertAll (pretty letterCaseOp) <>
         pretty pattern
 
 -- | An alternation operator.
@@ -206,6 +204,18 @@ instance Operator AltOp where
     operatorTable = zip [minBound .. maxBound] ["-", "=", "?", "+"]
 
 instance Pretty AltOp where
+    pretty = prettyOperator
+
+-- | A letter case operator.
+data LetterCaseOp
+    = ToLower
+    | ToUpper
+    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+
+instance Operator LetterCaseOp where
+    operatorTable = zip [ToLower, ToUpper] [",", "^"]
+
+instance Pretty LetterCaseOp where
     pretty = prettyOperator
 
 -- | A string direction.
