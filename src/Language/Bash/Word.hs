@@ -1,4 +1,9 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE
+    FlexibleInstances
+  , OverloadedStrings
+  , RecordWildCards
+  , TypeSynonymInstances
+  #-}
 -- | Bash words and substitutions.
 module Language.Bash.Word
     ( 
@@ -18,13 +23,17 @@ module Language.Bash.Word
     , unquote
     ) where
 
-import Text.PrettyPrint
+import qualified Data.String
+import           Text.PrettyPrint
 
-import Language.Bash.Operator
-import Language.Bash.Pretty
+import           Language.Bash.Operator
+import           Language.Bash.Pretty
 
 -- | A Bash word, broken up into logical spans.
 type Word = [Span]
+
+instance Data.String.IsString Word where
+    fromString = fromString
 
 data Span
       -- | A normal character.
