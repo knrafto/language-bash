@@ -31,7 +31,7 @@ data Span
       -- | An escaped character.
     | Escape Char
       -- | A single-quoted string.
-    | Single String
+    | Single Word
       -- | A double-quoted string.
     | Double Word
       -- | A ANSI C string.
@@ -39,7 +39,7 @@ data Span
       -- | A locale-translated string.
     | Locale Word
       -- | A backquote-style command substitution.
-      -- To extract the command string, use 'unquote'.
+      -- To extract the command string, 'unquote' the word inside.
     | Backquote Word
       -- | A parameter substitution.
     | ParameterSubst ParameterSubst
@@ -54,7 +54,7 @@ data Span
 instance Pretty Span where
     pretty (Char c)           = char c
     pretty (Escape c)         = "\\" <> char c
-    pretty (Single s)         = "\'" <> text s <> "\'"
+    pretty (Single w)         = "\'" <> pretty w <> "\'"
     pretty (Double w)         = "\"" <> pretty w <> "\""
     pretty (ANSIC w)          = "$\'" <> pretty w <> "\'"
     pretty (Locale w)         = "$\"" <> pretty w <> "\""
@@ -242,7 +242,7 @@ unquote = render . unquoteWord
 
     unquoteSpan (Char c)   = char c
     unquoteSpan (Escape c) = char c
-    unquoteSpan (Single s) = text s
+    unquoteSpan (Single w) = unquoteWord w
     unquoteSpan (Double w) = unquoteWord w
     unquoteSpan (ANSIC w)  = unquoteWord w
     unquoteSpan (Locale w) = unquoteWord w
