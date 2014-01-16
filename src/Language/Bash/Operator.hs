@@ -8,7 +8,7 @@ module Language.Bash.Operator
 
 import Control.Applicative
 import Data.Foldable
-import Text.PrettyPrint     hiding (empty)
+import Text.PrettyPrint
 
 import Language.Bash.Pretty
 
