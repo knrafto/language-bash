@@ -3,6 +3,7 @@
   , FlexibleInstances
   , LambdaCase
   , MultiParamTypeClasses
+  , OverloadedStrings
   , PatternGuards
   , RecordWildCards
   #-}
@@ -43,7 +44,9 @@ import           Text.Parsec.Prim             hiding ((<|>), token)
 import           Text.Parsec.Pos
 
 import qualified Language.Bash.Parse.Internal as I
+import           Language.Bash.Pretty
 import           Language.Bash.Syntax
+import           Language.Bash.Word
 
 -- | A memoized result.
 type Result d a = Consumed (Reply d () a)
@@ -90,7 +93,7 @@ pack p s = fix $ \d ->
             I.skipSpace
             return $ case next of
                 Just c | c == '<' || c == '>'
-                       , Right desc <- parse (descriptor <* eof) "" t
+                       , Right desc <- parse (descriptor <* eof) "" (prettyText t)
                   -> TIODesc desc
                 _ -> TWord t
         _anyWord     = result $ token >>= \case
@@ -157,7 +160,7 @@ anyWord = try (rat _anyWord) <?> "word"
 
 -- | Parse the given word.
 word :: Monad m => Word -> ParsecT D u m Word
-word w = anyWord `satisfying` (== w) <?> w
+word w = anyWord `satisfying` (== w) <?> prettyText w
 
 -- | Parse a reversed word.
 reservedWord :: Monad m => ParsecT D u m Word
@@ -179,9 +182,9 @@ ioDesc = try (rat _ioDesc) <?> "IO descriptor"
 
 -- | Parse a variable name.
 name :: Monad m => ParsecT D u m String
-name = unreservedWord `satisfying` isName <?> "name"
+name = (prettyText <$> unreservedWord) `satisfying` isName <?> "name"
   where
-    isName s = case parse (I.name <* eof) "" s of
+    isName s = case parse (I.name <* eof) "" (prettyText s) of
         Left _  -> False
         Right _ -> True
 
