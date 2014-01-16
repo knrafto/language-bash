@@ -12,6 +12,9 @@ module Language.Bash.Word
     , Direction(..)
       -- * Process
     , ProcessSubstOp(..)
+      -- * Manipulation
+    , fromString
+    , unquote
     ) where
 
 import Text.PrettyPrint
@@ -226,3 +229,21 @@ instance Operator ProcessSubstOp where
 
 instance Pretty ProcessSubstOp where
     pretty = prettyOperator
+
+-- | Convert a string to an unquoted word.
+fromString :: String -> Word
+fromString = map Char
+
+-- | Remove all quoting characters from a word.
+unquote :: Word -> String
+unquote = render . unquoteWord
+  where
+    unquoteWord = hcat . map unquoteSpan
+
+    unquoteSpan (Char c)   = char c
+    unquoteSpan (Escape c) = char c
+    unquoteSpan (Single s) = text s
+    unquoteSpan (Double w) = unquoteWord w
+    unquoteSpan (ANSIC w)  = unquoteWord w
+    unquoteSpan (Locale w) = unquoteWord w
+    unquoteSpan s          = pretty s
