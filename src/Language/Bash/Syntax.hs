@@ -1,18 +1,17 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 -- | Shell script types.
 module Language.Bash.Syntax
-    ( -- * Syntax
-      -- ** Words
-      Word
-    , Subscript
-      -- ** Commands
-    , Command(..)
-    , Redir(..)
-    , IODesc(..)
-    , RedirOp(..)
+    (
+      -- * Commands
+      Command(..)
     , ShellCommand(..)
     , CaseClause(..)
     , CaseTerm(..)
+      -- * Redirections
+    , Redir(..)
+    , IODesc(..)
+    , RedirOp(..)
+    , HeredocOp(..)
       -- * Lists
     , List(..)
     , Statement(..)
@@ -21,7 +20,6 @@ module Language.Bash.Syntax
     , Pipeline(..)
       -- * Assignments
     , Assign(..)
-    , LValue(..)
     , AssignOp(..)
     , RValue(..)
     ) where
@@ -31,6 +29,7 @@ import Text.PrettyPrint
 import Language.Bash.Cond     (CondExpr)
 import Language.Bash.Operator
 import Language.Bash.Pretty
+import Language.Bash.Word
 
 -- | Indent by 4 columns.
 indent :: Pretty a => a -> Doc
@@ -40,92 +39,12 @@ indent = nest 4 . pretty
 doDone :: Pretty a => a -> Doc
 doDone a = "do" $+$ indent a $+$ "done"
 
--- | A Bash word.
-type Word = String
-
--- | A variable subscript @[...]@.
-type Subscript = Word
-
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
     deriving (Eq, Read, Show)
 
 instance Pretty Command where
     pretty (Command c rs) = pretty c <+> pretty rs
-
--- | A redirection.
-data Redir
-    -- | A redirection.
-    = Redir
-        { -- | An optional file descriptor.
-          redirDesc   :: Maybe IODesc
-          -- | The redirection operator.
-        , redirOp     :: RedirOp
-          -- | The redirection target.
-        , redirTarget :: Word
-        }
-    -- | A here document.
-    | Heredoc
-        { -- | 'True' if the here document was stripped of leading tabs using
-          -- the @\<\<-@ operator.
-          heredocStrip       :: Bool
-          -- | The here document delimiter.
-        , heredocDelim       :: String
-          -- | 'True' if the delimiter was quoted.
-        , heredocDelimQuoted :: Bool
-          -- | The document itself.
-        , hereDocument       :: String
-        }
-    deriving (Eq, Read, Show)
-
-instance Pretty Redir where
-    pretty Redir{..} =
-        pretty redirDesc <> pretty redirOp <> text redirTarget
-    pretty Heredoc{..} =
-        text (if heredocStrip then "<<-" else "<<") <>
-        text (if heredocDelimQuoted
-              then "'" ++ heredocDelim ++ "'"
-              else heredocDelim) <> "\n" <>
-        text hereDocument <> text heredocDelim <> "\n"
-
-    prettyList = foldr f empty
-      where
-        f a@Redir{}   b = pretty a <+> b
-        f a@Heredoc{} b = pretty a <> b
-
--- | A redirection file descriptor.
-data IODesc
-    -- | A file descriptor number.
-    = IONumber Int
-    -- | A variable @{/varname/}@ to allocate a file descriptor for.
-    | IOVar String
-    deriving (Eq, Read, Show)
-
-instance Pretty IODesc where
-    pretty (IONumber n) = int n
-    pretty (IOVar n)    = "{" <> text n <> "}"
-
--- | A redirection operator.
-data RedirOp
-    = In          -- ^ @\<@
-    | Out         -- ^ @\>@
-    | OutOr       -- ^ @\>|@
-    | Append      -- ^ @\>\>@
-    | AndOut      -- ^ @&\>@
-    | AndAppend   -- ^ @&\>\>@
-    | HereString  -- ^ @\<\<\<@
-    | InAnd       -- ^ @\<&@
-    | OutAnd      -- ^ @\>&@
-    | InOut       -- ^ @\<\>@
-    deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance Operator RedirOp where
-    operatorTable = zip [minBound .. maxBound]
-        ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
-
--- | A redirection operator.
-instance Pretty RedirOp where
-    pretty = prettyOperator
 
 -- | A Bash command.
 data ShellCommand
@@ -167,7 +86,7 @@ data ShellCommand
 
 instance Pretty ShellCommand where
     pretty (SimpleCommand as ws)  = pretty as <+> pretty ws
-    pretty (AssignBuiltin w args) = text w <+> pretty args
+    pretty (AssignBuiltin w args) = pretty w <+> pretty args
     pretty (FunctionDef name l) =
         text name <+> "()" $+$ pretty (Group l)
     pretty (Coproc name c) =
@@ -181,13 +100,13 @@ instance Pretty ShellCommand where
     pretty (Cond e) =
         "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
-        "for" <+> text w <+> "in" <+> pretty ws <> ";" $+$ doDone l
+        "for" <+> pretty w <+> "in" <+> pretty ws <> ";" $+$ doDone l
     pretty (ArithFor s l) =
         "for" <+> "((" <> text s <> "))" $+$ doDone l
     pretty (Select w ws l) =
-        "select" <+> text w <+> "in" <+> pretty ws <> ";" $+$ doDone l
+        "select" <+> pretty w <+> "in" <+> pretty ws <> ";" $+$ doDone l
     pretty (Case w cs) =
-        "case" <+> text w <+> "in" $+$ indent cs $+$ "esac"
+        "case" <+> pretty w <+> "in" $+$ indent cs $+$ "esac"
     pretty (If p t f) =
         "if" <+> pretty p <+> "then" $+$ indent t $+$
         pretty (fmap (\l -> "else" $+$ indent l) f) $+$
@@ -203,7 +122,7 @@ data CaseClause = CaseClause [Word] List CaseTerm
 
 instance Pretty CaseClause where
     pretty (CaseClause ps l term) =
-        hcat (punctuate " | " (map text ps)) <> ")" $+$
+        hcat (punctuate " | " (map pretty ps)) <> ")" $+$
         indent l $+$
         pretty term
 
@@ -218,6 +137,92 @@ instance Operator CaseTerm where
     operatorTable = zip [minBound .. maxBound] [";;", ";&", ";;&"]
 
 instance Pretty CaseTerm where
+    pretty = prettyOperator
+
+-- | A redirection.
+data Redir
+    -- | A redirection.
+    = Redir
+        { -- | An optional file descriptor.
+          redirDesc   :: Maybe IODesc
+          -- | The redirection operator.
+        , redirOp     :: RedirOp
+          -- | The redirection target.
+        , redirTarget :: Word
+        }
+    -- | A here document.
+    | Heredoc
+        { -- | The here document operator.
+          heredocOp          :: HeredocOp
+          -- | The here document delimiter.
+        , heredocDelim       :: String
+          -- | 'True' if the delimiter was quoted.
+        , heredocDelimQuoted :: Bool
+          -- | The document itself, if the delimiter was quoted, no expansions
+          -- are parsed. If the delimiter was not quoted, parameter, arithmetic
+          -- and command substitutions take place.
+        , hereDocument       :: Word
+        }
+    deriving (Eq, Read, Show)
+
+instance Pretty Redir where
+    pretty Redir{..} =
+        pretty redirDesc <> pretty redirOp <> pretty redirTarget
+    pretty Heredoc{..} =
+        pretty heredocOp <>
+        text (if heredocDelimQuoted
+              then "'" ++ heredocDelim ++ "'"
+              else heredocDelim) <> "\n" <>
+        pretty hereDocument <> text heredocDelim <> "\n"
+
+    prettyList = foldr f empty
+      where
+        f a@Redir{}   b = pretty a <+> b
+        f a@Heredoc{} b = pretty a <> b
+
+-- | A redirection file descriptor.
+data IODesc
+    -- | A file descriptor number.
+    = IONumber Int
+    -- | A variable @{/varname/}@ to allocate a file descriptor for.
+    | IOVar String
+    deriving (Eq, Read, Show)
+
+instance Pretty IODesc where
+    pretty (IONumber n) = int n
+    pretty (IOVar n)    = "{" <> text n <> "}"
+
+-- | A redirection operator.
+data RedirOp
+    = In          -- ^ @\<@
+    | Out         -- ^ @\>@
+    | OutOr       -- ^ @\>|@
+    | Append      -- ^ @\>\>@
+    | AndOut      -- ^ @&\>@
+    | AndAppend   -- ^ @&\>\>@
+    | HereString  -- ^ @\<\<\<@
+    | InAnd       -- ^ @\<&@
+    | OutAnd      -- ^ @\>&@
+    | InOut       -- ^ @\<\>@
+    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+
+instance Operator RedirOp where
+    operatorTable = zip [minBound .. maxBound]
+        ["<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"]
+
+instance Pretty RedirOp where
+    pretty = prettyOperator
+
+-- | A here document operator.
+data HeredocOp
+    = Here       -- ^ @\<\<@
+    | HereStrip  -- ^ @\<\<-@
+    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+
+instance Operator HeredocOp where
+    operatorTable = zip [Here, HereStrip] ["<<", "<<-"]
+
+instance Pretty HeredocOp where
     pretty = prettyOperator
 
 -- | A compound list of statements.
@@ -295,19 +300,11 @@ instance Pretty Pipeline where
         hcat (punctuate " | " (map pretty commands))
 
 -- | An assignment.
-data Assign = Assign LValue AssignOp RValue
+data Assign = Assign Parameter AssignOp RValue
     deriving (Eq, Read, Show)
 
 instance Pretty Assign where
     pretty (Assign lhs op rhs) = pretty lhs <> pretty op <> pretty rhs
-
--- | The left side of an assignment.
-data LValue = LValue String (Maybe Subscript)
-    deriving (Eq, Read, Show)
-
-instance Pretty LValue where
-    pretty (LValue name sub) =
-        text name <> pretty (fmap (\s -> "[" ++ s ++ "]") sub)
 
 -- | An assignment operator.
 data AssignOp
@@ -316,7 +313,7 @@ data AssignOp
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
 instance Operator AssignOp where
-    operatorTable = [(Equals, "="), (PlusEquals, "+=")]
+    operatorTable = zip [Equals, PlusEquals] ["=", "+="]
 
 instance Pretty AssignOp where
     pretty = prettyOperator
@@ -325,12 +322,13 @@ instance Pretty AssignOp where
 data RValue
     -- | A simple word.
     = RValue Word
-    -- | An array assignment.
-    | RArray [(Maybe Subscript, Word)]
+    -- | An array assignment, as @(subscript, word)@ pairs.
+    | RArray [(Maybe Word, Word)]
     deriving (Eq, Read, Show)
 
 instance Pretty RValue where
-    pretty (RValue w)  = text w
+    pretty (RValue w)  = pretty w
     pretty (RArray rs) = "(" <> hsep (map f rs) <> ")"
       where
-        f (sub, w) = pretty (fmap (\s -> "[" ++ s ++ "]=") sub) <> text w
+        f (Nothing , w) = pretty w
+        f (Just sub, w) = "[" <> pretty sub <> "]=" <> pretty w
