@@ -352,9 +352,11 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
         , [Infix  (Cond.Or  <$ operator "||") AssocLeft]
         ]
 
-    condWord = (anyWord <|> anyOperator) `satisfying` (/= "]]") <?> "word"
+    condWord = anyWord `satisfying` (/= "]]")
+           <|> fromString <$> anyOperator
+           <?> "word"
 
-    condOperator op = condWord `satisfying` (== op) <?> op
+    condOperator op = condWord `satisfying` (== fromString op) <?> op
 
     unaryOp  = selectOperator condOperator <?> "unary operator"
     binaryOp = selectOperator condOperator <?> "binary operator"
