@@ -27,9 +27,7 @@ library
 
   exposed-modules:
     Language.Bash.Cond
-    Language.Bash.Expand
     Language.Bash.Parse
-    Language.Bash.Pattern
     Language.Bash.Pretty
     Language.Bash.Syntax
     Language.Bash.Word
@@ -39,7 +37,6 @@ library
     Language.Bash.Parse.Builder
     Language.Bash.Parse.Internal
     Language.Bash.Parse.Packrat
-    Language.Bash.Parse.Word
 
   build-depends:
     base         >= 4   && < 5,
