@@ -2,6 +2,7 @@
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand
+    , splitWord
     ) where
 
 import Control.Applicative
@@ -34,10 +35,9 @@ satisfy p = token $ \case
     Char c | p c -> Just c
     _            -> Nothing
 
--- | Parse a word until an unquoted character that satisfies the predicate
--- appears.
-manyTill :: (Char -> Bool) -> Parser Word
-manyTill p = many $ token $ \case
+-- | Parse a span that is not an unquoted character satisfying a predicate.
+except :: (Char -> Bool) -> Parser Span
+except p = token $ \case
     Char c | p c -> Nothing
     s            -> Just s
 
@@ -48,6 +48,14 @@ char c = satisfy (== c)
 -- | Parse an unquoted string.
 string :: String -> Parser String
 string = traverse char
+
+-- | Parse one of the given characters.
+oneOf :: [Char] -> Parser Char
+oneOf cs = satisfy (`elem` cs)
+
+-- | Parse anything but a quoted character.
+noneOf :: [Char] -> Parser Span
+noneOf cs = except (`elem` cs)
 
 -- | Read a number.
 fromNumber :: MonadPlus m => String -> m Int
@@ -78,10 +86,10 @@ braceExpand :: Word -> [Word]
 braceExpand = parseUnsafe "braceExpand" (go "")
   where
     go delims = try (brace delims)
-            <|> (:[]) <$> manyTill (`elem` delims)
+            <|> (:[]) <$> many (noneOf delims)
 
     brace delims = do
-        a  <- manyTill (`elem` ('{' : delims))
+        a  <- many (noneOf ('{':delims))
         _  <- char '{'
         bs <- try sequenceExpand <|> braceParts
         _  <- char '}'
@@ -126,3 +134,10 @@ braceExpand = parseUnsafe "braceExpand" (go "")
             | otherwise = replicate (w - length s) '0' ++ s
           where
             s = show n
+
+-- | Split a word on delimiters.
+splitWord :: [Char] -> Word -> [Word]
+splitWord ifs = parseUnsafe "splitWord" $ space *> many (word <* space)
+  where
+    space = many  (oneOf  ifs)
+    word  = many1 (noneOf ifs)
