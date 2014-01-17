@@ -1,5 +1,5 @@
 name:               language-bash
-version:            0.4.0
+version:            0.5.0
 category:           Language
 license:            BSD3
 license-file:       LICENSE
@@ -12,7 +12,8 @@ homepage:           http://github.com/knrafto/language-bash/
 bug-reports:        http://github.com/knrafto/language-bash/issues
 synopsis:           Parsing and pretty-printing Bash shell scripts
 description:
-    A library for parsing and pretty-printing Bash shell scripts.
+    A library for parsing, pretty-printing, and manipulating
+    Bash shell scripts.
 
 extra-source-files:
   .gitignore
@@ -28,6 +29,7 @@ library
   exposed-modules:
     Language.Bash.Cond
     Language.Bash.Parse
+    Language.Bash.Parse.Word
     Language.Bash.Pretty
     Language.Bash.Syntax
     Language.Bash.Word
@@ -36,7 +38,6 @@ library
     Language.Bash.Operator
     Language.Bash.Parse.Builder
     Language.Bash.Parse.Internal
-    Language.Bash.Parse.Word
 
   build-depends:
     base         >= 4   && < 5,
