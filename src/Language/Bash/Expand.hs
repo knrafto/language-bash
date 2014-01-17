@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings #-}
+{-# LANGUAGE LambdaCase, OverloadedStrings, PatternGuards #-}
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand
@@ -62,13 +62,12 @@ noneOf cs = except (`elem` cs)
 
 -- | Read a number.
 readNumber :: MonadPlus m => String -> m Int
-readNumber s = case s of
-    '+':s' -> readNumber s'
-    _      -> readNumber s
+readNumber s = case reads (dropPlus s) of
+    [(n, "")] -> return n
+    _         -> mzero
   where
-    readNumber t = case reads t of
-        [(n, "")] -> return n
-        _         -> mzero
+    dropPlus ('+':t) = t
+    dropPlus t       = t
 
 -- | Read a letter.
 readAlpha :: MonadPlus m => String -> m Char
@@ -156,11 +155,11 @@ instance Pretty TildePrefix where
 
 -- | Strip the tilde prefix of a word, if any.
 tildePrefix :: Word -> Maybe (TildePrefix, Word)
-tildePrefix w = case parseUnsafe "tildePrefix" prefix w of
+tildePrefix w = case parseUnsafe "tildePrefix" split w of
     ('~':s, w') -> Just (readPrefix s, w')
     _           -> Nothing
   where
-    prefix = (,) <$> many (satisfy (/= '/')) <*> getInput
+    split = (,) <$> many (satisfy (/= '/')) <*> getInput
 
     readPrefix s
         | s == ""                = Home
@@ -171,7 +170,7 @@ tildePrefix w = case parseUnsafe "tildePrefix" prefix w of
 
 -- | Split a word on delimiters.
 splitWord :: [Char] -> Word -> [Word]
-splitWord ifs = parseUnsafe "splitWord" $ space *> many (word <* space)
+splitWord ifs = parseUnsafe "splitWord" $ ifsep *> many (word <* ifsep)
   where
-    space = many  (oneOf  ifs)
+    ifsep = many  (oneOf  ifs)
     word  = many1 (noneOf ifs)
