@@ -90,7 +90,7 @@ singleQuote = Single <$> matchedPair '\'' '\'' False empty
 doubleQuote :: Stream s m Char => ParsecT s u m Span
 doubleQuote = Double <$> matchedPair '"' '"' True inner
   where
-    inner = Escape <$ char '\\' <*> oneOf "$\\`\""
+    inner = try (Escape <$ char '\\' <*> oneOf "$\\`\"")
         <|> backquote
         <|> dollar
 
@@ -98,7 +98,7 @@ doubleQuote = Double <$> matchedPair '"' '"' True inner
 ansiQuote :: Stream s m Char => ParsecT s u m Span
 ansiQuote = ANSIC <$ char '$' <*> matchedPair '\'' '\'' True escape
   where
-    escape = fromChar <$ char '\\' <*> escapeCode
+    escape = try (fromChar <$ char '\\' <*> escapeCode)
 
     fromChar c | c `elem` "\\\'" = Escape c
                | otherwise       = Char c
