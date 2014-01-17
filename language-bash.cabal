@@ -27,6 +27,7 @@ library
 
   exposed-modules:
     Language.Bash.Cond
+    Language.Bash.Expand
     Language.Bash.Parse
     Language.Bash.Pretty
     Language.Bash.Syntax
