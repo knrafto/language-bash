@@ -32,6 +32,8 @@ module Language.Bash.Parse.Packrat
     , assign
       -- * Arithmetic expressions
     , arith
+      -- * Here documents
+    , heredocWord
     ) where
 
 import           Control.Applicative
@@ -40,6 +42,7 @@ import           Data.Function
 import           Data.Functor.Identity
 import           Text.Parsec.Char
 import           Text.Parsec.Combinator       hiding (optional)
+import           Text.Parsec.Error
 import           Text.Parsec.Prim             hiding ((<|>), token)
 import           Text.Parsec.Pos
 
@@ -63,6 +66,14 @@ rat f = mkPT $ \s0 -> return $
 womp :: d -> SourcePos -> ParsecT d () Identity a -> Result d a
 womp d pos p = fmap runIdentity . runIdentity $
     runParsecT p (State d pos ())
+
+-- | Run a parser, merging it with another.
+reparse :: Stream s m t0 => ParsecT s u m a -> s -> ParsecT t u m a
+reparse p input = mkPT $ \s0@(State _ _ u) ->
+    (fmap return . patch s0) `liftM` runParserT p u "" input
+  where
+    patch (State _ pos _) (Left e)  = Empty (Error (setErrorPos pos e))
+    patch s               (Right r) = Empty (Ok r s (unknownError s))
 
 -- | A token.
 data Token
@@ -204,3 +215,7 @@ assign = try (rat _assign) <?> "assignment"
 arith :: Monad m => ParsecT D u m String
 arith = try (string "((") *> I.arith <* string "))" <* I.skipSpace
     <?> "arithmetic expression"
+
+-- | Reparse a here document into a word.
+heredocWord :: Monad m => String -> ParsecT s u m Word
+heredocWord = reparse I.heredocWord

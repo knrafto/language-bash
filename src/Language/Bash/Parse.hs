@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 -- | Bash script and input parsing.
 module Language.Bash.Parse
     ( parse
@@ -15,10 +16,11 @@ import           Text.Parsec.Pos
 import           Text.Parsec.Prim             hiding (parse, (<|>))
 
 import qualified Language.Bash.Cond           as Cond
-import           Language.Bash.Expand         (unquote)
 import           Language.Bash.Operator
 import           Language.Bash.Parse.Packrat
+import           Language.Bash.Pretty
 import           Language.Bash.Syntax
+import           Language.Bash.Word           (Word, fromString, unquote)
 
 -- | User state.
 data U = U { postHeredoc :: Maybe (State D U) }
@@ -45,10 +47,6 @@ p </> q = try p <|> q
 (?:) :: String -> ParsecT s u m a -> ParsecT s u m a
 (?:) = flip (<?>)
 
--- | Get the next line of input.
-line :: Parser String
-line = lookAhead anyChar *> many (satisfy (/= '\n')) <* optional (char '\n')
-
 -- | Parse the next here document.
 heredoc :: Bool -> String -> Parser String
 heredoc strip end = "here document" ?: do
@@ -67,7 +65,12 @@ heredoc strip end = "here document" ?: do
         s <- getParserState
         return (h, s)
 
-    heredocLines = do
+    line = many (satisfy (/= '\n')) <* optional (char '\n')
+
+    heredocLines = [] <$ eof
+               <|> nextLine
+
+    nextLine = do
         l <- process <$> line
         if l == end then return [] else (l :) <$> heredocLines
 
@@ -105,33 +108,24 @@ redir = normalRedir
     <?> "redirection"
   where
     normalRedir = do
-        desc   <- optional ioDesc
-        op     <- redirOperator
-        target <- anyWord
-        return Redir
-            { redirDesc   = desc
-            , redirOp     = op
-            , redirTarget = target
-            }
+        redirDesc   <- optional ioDesc
+        redirOp     <- redirOperator
+        redirTarget <- anyWord
+        return Redir{..}
 
     heredocRedir = do
-        strip <- heredocOperator
+        heredocOp <- heredocOperator
         w <- anyWord
-        let delim = unquote w
-        h <- heredoc strip delim
-        return Heredoc
-            { heredocStrip       = strip
-            , heredocDelim       = delim
-            , heredocDelimQuoted = delim /= w
-            , hereDocument       = h
-            }
+        let heredocDelim = unquote w
+            heredocDelimQuoted = fromString heredocDelim /= w
+        h <- heredoc (heredocOp == HereStrip) heredocDelim
+        hereDocument <- if heredocDelimQuoted
+                        then heredocWord h
+                        else return (fromString h)
+        return Heredoc{..}
 
-    redirOperator = selectOperator operator
-                <?> "redirection operator"
-
-    heredocOperator = False <$ operator "<<"
-                  <|> True  <$ operator "<<-"
-                  <?> "here document operator"
+    redirOperator   = selectOperator operator <?> "redirection operator"
+    heredocOperator = selectOperator operator <?> "here document operator"
 
 -- | Skip a list of redirections.
 redirList :: Parser [Redir]
