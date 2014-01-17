@@ -17,7 +17,7 @@ import           Text.Parsec.Prim             hiding (parse, (<|>))
 
 import qualified Language.Bash.Cond           as Cond
 import           Language.Bash.Operator
-import           Language.Bash.Parse.Packrat
+import           Language.Bash.Parse.Internal
 import           Language.Bash.Pretty
 import           Language.Bash.Syntax
 import           Language.Bash.Word           (Word, fromString, unquote)

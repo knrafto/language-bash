@@ -1,357 +1,221 @@
-{-# LANGUAGE FlexibleContexts, RecordWildCards #-}
--- | Word-level parsers.
+{-# LANGUAGE
+    FlexibleContexts
+  , FlexibleInstances
+  , LambdaCase
+  , MultiParamTypeClasses
+  , OverloadedStrings
+  , PatternGuards
+  , RecordWildCards
+  #-}
+-- | Memoized packrat parsing, inspired by Edward Kmett\'s
+-- \"A Parsec Full of Rats\".
 module Language.Bash.Parse.Internal
-    ( skipSpace
-    , arith
+    ( -- * Packrat parsing
+      D
+    , pack
+      -- * Tokens
+    , satisfying
+      -- * Whitespace
+    , I.skipSpace
+      -- * Words
+    , anyWord
     , word
-    , heredocWord
+    , reservedWord
+    , unreservedWord
+    , assignBuiltin
+    , ioDesc
     , name
-    , assign
+      -- * Operators
+    , anyOperator
     , operator
+      -- * Assignments
+    , assign
+      -- * Arithmetic expressions
+    , arith
+      -- * Here documents
+    , heredocWord
     ) where
 
 import           Control.Applicative
 import           Control.Monad
-import           Data.Char
-import           Data.List
-import           Data.Maybe
-import           Text.Parsec                 hiding ((<|>), optional, many)
+import           Data.Function
+import           Data.Functor.Identity
+import           Text.Parsec.Char
+import           Text.Parsec.Combinator   hiding (optional)
+import           Text.Parsec.Error
+import           Text.Parsec.Prim         hiding ((<|>), token)
+import           Text.Parsec.Pos
 
-import           Language.Bash.Parse.Builder ((<+>))
-import qualified Language.Bash.Parse.Builder as B
+import qualified Language.Bash.Parse.Word as I
 import           Language.Bash.Pretty
 import           Language.Bash.Syntax
 import           Language.Bash.Word
 
--- | @surroundBy p sep@ parses zero or more occurences of @p@, beginning,
--- ending, and separated by @sep@.
-surroundBy
-    :: Stream s m t
+-- | A memoized result.
+type Result d a = Consumed (Reply d () a)
+
+-- | Build a parser from a field accessor.
+rat :: Monad m => (d -> Result d a) -> ParsecT d u m a
+rat f = mkPT $ \s0 -> return $
+    return . patch s0 <$> f (stateInput s0)
+  where
+    patch (State _ _ u) (Ok a (State s p _) err) = Ok a (State s p u) err
+    patch _             (Error e)                = Error e
+
+-- | Obtain a result from a stateless parser.
+womp :: d -> SourcePos -> ParsecT d () Identity a -> Result d a
+womp d pos p = fmap runIdentity . runIdentity $
+    runParsecT p (State d pos ())
+
+-- | Run a parser, merging it with another.
+reparse :: Stream s m t0 => ParsecT s u m a -> s -> ParsecT t u m a
+reparse p input = mkPT $ \s0@(State _ _ u) ->
+    (fmap return . patch s0) `liftM` runParserT p u "" input
+  where
+    patch (State _ pos _) (Left e)  = Empty (Error (setErrorPos pos e))
+    patch s               (Right r) = Empty (Ok r s (unknownError s))
+
+-- | A token.
+data Token
+    = TWord Word
+    | TIODesc IODesc
+
+-- | A stream with memoized results.
+data D = D
+    { _token       :: Result D Token
+    , _anyWord     :: Result D Word
+    , _ioDesc      :: Result D IODesc
+    , _anyOperator :: Result D String
+    , _assign      :: Result D Assign
+    , _uncons      :: Maybe (Char, D)
+    }
+
+instance Monad m => Stream D m Char where
+    uncons = return . _uncons
+
+-- | Create a source from a string.
+pack :: SourcePos -> String -> D
+pack p s = fix $ \d ->
+    let result       = womp d p
+        _token       = result $ do
+            t <- I.word
+            guard $ not (null t)
+            next <- optional (lookAhead anyChar)
+            I.skipSpace
+            return $ case next of
+                Just c | c == '<' || c == '>'
+                       , Right desc <- parse (descriptor <* eof) "" (prettyText t)
+                  -> TIODesc desc
+                _ -> TWord t
+        _anyWord     = result $ token >>= \case
+            TWord w -> return w
+            _       -> empty
+        _ioDesc      = result $ token >>= \case
+            TIODesc desc -> return desc
+            _            -> empty
+        _anyOperator = result $ I.operator operators <* I.skipSpace
+        _assign      = result $ I.assign <* I.skipSpace
+        _uncons      = case s of
+            []     -> Nothing
+            (x:xs) -> Just (x, pack (updatePosChar p x) xs)
+    in  D {..}
+
+-- | Parse a value satisfying the predicate.
+satisfying
+    :: (Stream s m t, Show a)
     => ParsecT s u m a
-    -> ParsecT s u m sep
-    -> ParsecT s u m [a]
-surroundBy p sep = sep *> endBy p sep
+    -> (a -> Bool)
+    -> ParsecT s u m a
+satisfying a p = try $ do
+    t <- a
+    if p t then return t else unexpected (show t)
 
--- | @upTo n p@ parses zero to @n@ occurences of @p@.
-upTo :: Alternative f => Int -> f a -> f [a]
-upTo m p = go m
+-- | Shell reserved words.
+reservedWords :: [Word]
+reservedWords =
+    [ "!", "[[", "]]", "{", "}"
+    , "if", "then", "else", "elif", "fi"
+    , "case", "esac", "for", "select", "while", "until"
+    , "in", "do", "done", "time", "function"
+    ]
+
+-- | Shell assignment builtins. These builtins can take assignments as
+-- arguments.
+assignBuiltins :: [Word]
+assignBuiltins =
+    [ "alias", "declare", "export", "eval"
+    , "let", "local", "readonly", "typeset"
+    ]
+
+-- | All Bash operators.
+operators :: [String]
+operators =
+    [ "(", ")", ";;", ";&", ";;&"
+    , "|", "|&", "||", "&&", ";", "&", "\n"
+    , "<", ">", ">|", ">>", "&>", "&>>", "<<<", "<&", ">&", "<>"
+    , "<<", "<<-"
+    ]
+
+-- | Parse a descriptor.
+descriptor :: Stream s m Char => ParsecT s u m IODesc
+descriptor = IONumber . read <$> many1 digit
+         <|> IOVar <$ char '{' <*> I.name <* char '}'
+
+-- | Parse a single token.
+token :: Monad m => ParsecT D u m Token
+token = try (rat _token) <?> "token"
+
+-- | Parse any word.
+anyWord :: Monad m => ParsecT D u m Word
+anyWord = try (rat _anyWord) <?> "word"
+
+-- | Parse the given word.
+word :: Monad m => Word -> ParsecT D u m Word
+word w = anyWord `satisfying` (== w) <?> prettyText w
+
+-- | Parse a reversed word.
+reservedWord :: Monad m => ParsecT D u m Word
+reservedWord = anyWord `satisfying` (`elem` reservedWords) <?> "reserved word"
+
+-- | Parse a word that is not reserved.
+unreservedWord :: Monad m => ParsecT D u m Word
+unreservedWord = anyWord `satisfying` (`notElem` reservedWords)
+    <?> "unreserved word"
+
+-- | Parse an assignment builtin.
+assignBuiltin :: Monad m => ParsecT D u m Word
+assignBuiltin = anyWord `satisfying` (`elem` assignBuiltins)
+    <?> "assignment builtin"
+
+-- | Parse a redirection word or number.
+ioDesc :: Monad m => ParsecT D u m IODesc
+ioDesc = try (rat _ioDesc) <?> "IO descriptor"
+
+-- | Parse a variable name.
+name :: Monad m => ParsecT D u m String
+name = (prettyText <$> unreservedWord) `satisfying` isName <?> "name"
   where
-    go n | n < 0     = empty
-         | n == 0    = pure []
-         | otherwise = (:) <$> p <*> go (n - 1) <|> pure []
+    isName s = case parse (I.name <* eof) "" (prettyText s) of
+        Left _  -> False
+        Right _ -> True
 
--- | @upTo1 n p@ parses one to @n@ occurences of @p@.
-upTo1 :: Alternative f => Int -> f a -> f [a]
-upTo1 n p = (:) <$> p <*> upTo (n - 1) p
+-- | Parse any operator.
+anyOperator :: Monad m => ParsecT D u m String
+anyOperator = try (rat _anyOperator) <?> "operator"
 
--- | Parse a span until a delimeter.
-spans
-    :: Stream s m Char
-    => [Char]              -- ^ Delimiters
-    -> Bool                -- ^ Remove escaped newlines
-    -> ParsecT s u m Span  -- ^ Inner spans
-    -> ParsecT s u m Word
-spans delims removeEscapedNewline innerSpan = catMaybes <$> many inner
-  where
-    inner = Nothing     <$  escapedNewline
-        <|> Just        <$> innerSpan
-        <|> Just . Char <$> noneOf delims
-
-    escapedNewline = if removeEscapedNewline
-                     then try (string "\\\n")
-                     else empty
-
--- | Parse a matched pair.
-matchedPair
-    :: Stream s m Char
-    => Char                -- ^ Start character
-    -> Char                -- ^ End character
-    -> Bool                -- ^ Remove escaped newlines
-    -> ParsecT s u m Span  -- ^ Inner spans
-    -> ParsecT s u m Word
-matchedPair begin end removeEscapedNewline innerSpan =
-    char begin *> spans [end] removeEscapedNewline innerSpan <* char end
-
--- | Skip spaces, tabs, and comments.
-skipSpace :: Stream s m Char => ParsecT s u m ()
-skipSpace = skipMany spaceChar <* optional comment <?> "whitespace"
-  where
-    spaceChar = () <$ try (string "\\\n")
-            <|> () <$ oneOf " \t"
-
-    comment = char '#' *> many (satisfy (/= '\n'))
-
--- | Parse a single-quoted string.
-singleQuote :: Stream s m Char => ParsecT s u m Span
-singleQuote = Single <$> matchedPair '\'' '\'' False empty
-
--- | Parse a double-quoted string.
-doubleQuote :: Stream s m Char => ParsecT s u m Span
-doubleQuote = Double <$> matchedPair '"' '"' True inner
-  where
-    inner = try (Escape <$ char '\\' <*> oneOf "$\\`\"")
-        <|> backquote
-        <|> dollar
-
--- | Parse an ANSI C string.
-ansiQuote :: Stream s m Char => ParsecT s u m Span
-ansiQuote = ANSIC <$ char '$' <*> matchedPair '\'' '\'' True escape
-  where
-    escape = try (fromChar <$ char '\\' <*> escapeCode)
-
-    fromChar c | c `elem` "\\\'" = Escape c
-               | otherwise       = Char c
-
-    escapeCode = charCodes
-             <|> char 'x' *> hex 2
-             <|> char 'u' *> hex 4
-             <|> char 'U' *> hex 8
-             <|> oct 3
-             <|> char 'c' *> ctrlCodes
-
-    charCodes = codes "abeEfnrtv\\\'\"" "\a\b\ESC\ESC\f\n\r\t\v\\\'\""
-
-    ctrlCodes = '\FS' <$ try (string "\\\\")
-            <|> codes "@ABCDEFGHIJKLMOPQRSTUVWXYZ[]^_?"
-                      ("\NUL\SOH\STX\ETX\EOT\ENQ\ACK\BEL\BS\HT\LF\VT\FF" ++
-                       "\CR\SO\SI\DLE\DC1\DC2\DC3\DC4\NAK\SYN\ETB\CAN\EM" ++
-                       "\SUB\ESC\GS\RS\US\DEL")
-
-    codes chars replacements = try $ do
-        c <- anyChar
-        case lookup c table of
-            Nothing -> unexpected [c]
-            Just c' -> return c'
-      where
-        table = zip chars replacements
-
-    oct n = number n 8 octDigit
-    hex n = number n 16 hexDigit
-
-    number maxDigits base baseDigit = do
-        digits <- map digitToInt <$> upTo1 maxDigits baseDigit
-        let n = foldl' (\x d -> base*x + d) 0 digits
-        return $ if n > ord maxBound then '\0' else chr n  -- arbitrary
-
--- | Parse a locale string.
-localeQuote :: Stream s m Char => ParsecT s u m Span
-localeQuote = Locale <$ char '$' <*> matchedPair '"' '"' True inner
-  where
-    inner = try (Escape <$ char '\\' <*> oneOf "$\\`\"")
-        <|> backquote
-        <|> dollar
-
--- | Parse a backquoted string.
-backquote :: Stream s m Char => ParsecT s u m Span
-backquote = Backquote <$> matchedPair '`' '`' False escape
-  where
-    escape = try (Escape <$ char '\\' <*> oneOf "$\\`")
-
--- | Parse an arithmetic expression.
-arith :: Stream s m Char => ParsecT s u m String
-arith = B.toString <$> parens <?> "arithmetic expression"
-  where
-    parens = B.many inner
-    inner  = B.matchedPair '(' ')' parens
-
--- | Parse a parenthesized substitution.
-subst :: Stream s m Char => ParsecT s u m String
-subst = B.toString <$ char '(' <*> B.many parens <* char ')'
-  where
-    parens = B.char '(' <+> B.many parens <+> B.char ')'
-         <|> B.char '#' <+> B.many (B.satisfy (/= '\n')) <+> B.char '\n'
-         <|> B.char '\\' <+> B.anyChar
-         <|> fromSpan <$> singleQuote
-         <|> fromSpan <$> doubleQuote
-         <|> fromSpan <$> backquote
-         <|> fromSpan <$> dollar
-         <|> B.satisfy (/= ')')
-
-    fromSpan = B.fromString . prettyText
-
--- | Parse a dollar substitution.
-dollar :: Stream s m Char => ParsecT s u m Span
-dollar = char '$' *> rest
-  where
-    rest = arithSubst
-       <|> commandSubst
-       <|> braceSubst
-       <|> bareSubst
-       <|> pure (Char '$')
-
-    arithSubst   = ArithSubst   <$  try (string "((") <*> arith <* string "))"
-    commandSubst = CommandSubst <$> subst
-    braceSubst   = ParamSubst   <$  char '{' <*> paramSubst <* char '}'
-
-    bareSubst = ParamSubst . Bare <$> bareParam
-      where
-        bareParam = Parameter <$> bareParamName <*> pure Nothing
-
-        bareParamName = name
-                    <|> specialName
-                    <|> (:[]) <$> digit
-
--- | Parse a parameter substitution.
-paramSubst :: Stream s m Char => ParsecT s u m ParamSubst
-paramSubst = try prefixSubst
-         <|> try indicesSubst
-         <|> try lengthSubst
-         <|> normalSubst
-  where
-    param = Parameter <$> name        <*> optional subscript
-        <|> Parameter <$> many1 digit <*> pure Nothing
-        <|> Parameter <$> specialName <*> pure Nothing
-
-    switch c = isJust <$> optional (char c)
-
-    doubled p = do
-        a <- p
-        d <- fmap isJust . optional . try $ do
-            b <- p
-            guard (a == b)
-        return (a, d)
-
-    direction = Front <$ char '#'
-            <|> Back  <$ char '%'
-
-    substWord delims = spans delims True inner
-      where
-        inner = Escape <$ char '\\' <*> anyChar
-            <|> singleQuote
-            <|> doubleQuote
-            <|> backquote
-            <|> dollar
-
-    prefixSubst = do
-        _        <- char '!'
-        prefix   <- name
-        modifier <- oneOf "*@"
-        return Prefix{..}
-
-    indicesSubst = do
-        _   <- char '!'
-        n   <- name
-        _   <- char '['
-        sub <- oneOf "*@"
-        _   <- char ']'
-        let parameter = Parameter n (Just [Char sub])
-        return Indices{..}
-
-    lengthSubst = do
-        _         <- char '#'
-        parameter <- param
-        return Length {..}
-
-    normalSubst = do
-        indirect <- switch '!'
-        parameter <- param
-        choice . map try $
-            [ do testNull <- switch ':'
-                 altOp <- AltDefault <$ char '-'
-                      <|> AltAssign  <$ char '='
-                      <|> AltError   <$ char '?'
-                      <|> AltReplace <$ char '+'
-                 altWord <- substWord "}"
-                 return Alt{..}
-            , do subOffset <- char ':' *> substWord ":}"
-                 subLength <- option [] (char ':' *> substWord "}")
-                 return Substring{..}
-            , do (deleteDirection, longest) <- doubled direction
-                 pattern <- substWord "}"
-                 return Delete{..}
-            , do _ <- char '/'
-                 replaceAll <- switch '/'
-                 replaceDirection <- optional direction
-                 pattern <- substWord "/}"
-                 replacement <- option [] (char '/' *> substWord "}")
-                 return Replace{..}
-            , do (letterCaseOp, convertAll) <- doubled $
-                        ToLower <$ char ','
-                    <|> ToUpper <$ char '^'
-                 pattern <- substWord "}"
-                 return LetterCase{..}
-            , return Brace {..}
-            ]
-
--- | Parse a process substitution.
-processSubst :: Stream s m Char => ParsecT s u m Span
-processSubst = ProcessSubst <$> processSubstOp <*> subst
-  where
-    processSubstOp = ProcessIn  <$ char '<'
-                 <|> ProcessOut <$ char '>'
-
--- | Parse any span that may occur in a word.
-wordSpan :: Stream s m Char => ParsecT s u m Span
-wordSpan = try (Escape <$ char '\\' <*> anyChar)
-       <|> singleQuote
-       <|> doubleQuote
-       <|> try ansiQuote
-       <|> try localeQuote
-       <|> backquote
-       <|> dollar
-       <|> try processSubst
-
--- | Parse a word.
-word :: Stream s m Char => ParsecT s u m Word
-word = spans " \t\n$|;()<>" True wordSpan
-
--- | Parse a here document.
-heredocWord :: Stream s m Char => ParsecT s u m Word
-heredocWord = spans [] True inner
-  where
-    inner = try (Escape <$ char '\\' <*> oneOf "$\\`")
-        <|> backquote
-        <|> dollar
-
--- | Parse a parameter name.
-name :: Stream s m Char => ParsecT s u m String
-name = (:) <$> nameStart <*> many nameLetter
-  where
-    nameStart  = letter   <|> char '_'
-    nameLetter = alphaNum <|> char '_'
-
--- | Parse a special parameter name.
-specialName :: Stream s m Char => ParsecT s u m String
-specialName = (:[]) <$> oneOf "*@#?-$!_"
-
--- | Parse a subscript.
-subscript :: Stream s m Char => ParsecT s u m Word
-subscript = matchedPair '[' ']' True wordSpan
+-- | Parse a given operator.
+operator :: Monad m => String -> ParsecT D u m String
+operator op = anyOperator `satisfying` (== op) <?> op
 
 -- | Parse an assignment.
-assign :: Stream s m Char => ParsecT s u m Assign
-assign = Assign <$> lvalue <*> assignOp <*> rvalue <?> "assignment"
-  where
-    lvalue = Parameter <$> name <*> optional subscript
+assign :: Monad m => ParsecT D u m Assign
+assign = try (rat _assign) <?> "assignment"
 
-    assignOp = Equals     <$ string "="
-           <|> PlusEquals <$ string "+="
+-- | Parse an arithmetic expression.
+arith :: Monad m => ParsecT D u m String
+arith = try (string "((") *> I.arith <* string "))" <* I.skipSpace
+    <?> "arithmetic expression"
 
-    rvalue = RArray <$  char '(' <*> arrayElems <* char ')'
-         <|> RValue <$> word
-
-    arrayElems = arrayElem `surroundBy` skipArraySpace
-
-    arrayElem = do
-        s <- optional (subscript <* char '=')
-        w <- word
-        case (s, w) of
-            (Nothing, []) -> empty
-            _             -> return (s, w)
-
-    skipArraySpace = char '\n' `surroundBy` skipSpace
-
--- | Parse the longest available operator from a list.
-operator :: Stream s m Char => [String] -> ParsecT s u m String
-operator ops = go ops <?> "operator"
-  where
-    go xs
-        | null xs      = empty
-        | "" `elem` xs = try (continue xs) <|> pure ""
-        | otherwise    = continue xs
-
-    continue xs = do
-        c <- anyChar
-        (c :) <$> go (prefix c xs)
-
-    prefix c = map tail . filter (\x -> not (null x) && head x == c)
+-- | Reparse a here document into a word.
+heredocWord :: Monad m => String -> ParsecT s u m Word
+heredocWord = reparse I.heredocWord
