@@ -35,6 +35,7 @@ type Word = [Span]
 instance Data.String.IsString Word where
     fromString = fromString
 
+-- | An individual unit of a word.
 data Span
       -- | A normal character.
     = Char Char
@@ -86,81 +87,74 @@ instance Pretty Parameter where
         subscript Nothing  = empty
         subscript (Just w) = "[" <> pretty w <> "]"
 
+-- | A parameter substitution.
 data ParamSubst
-      -- | A substitution with no braces.
     = Bare
-        { -- ^ The parameter to substitute.
+        { -- | The parameter to substitute.
           parameter         :: Parameter
         }
-      -- | A simple substitution with bracesx
     | Brace
-        { -- ^ Use indirect expansion.
+        { -- | Use indirect expansion.
           indirect          :: Bool
         , parameter         :: Parameter
         }
-      -- | A substitution that treats unset or null values specially.
     | Alt
         { indirect          :: Bool
         , parameter         :: Parameter
-          -- ^ Test for both existence and null values.
+          -- | Test for both existence and null values.
         , testNull          :: Bool
-          -- ^ The operator.
+          -- | The operator.
         , altOp             :: AltOp
-          -- ^ The alternate word.
+          -- | The alternate word.
         , altWord           :: Word
         }
-      -- ^ Substring replacement.
     | Substring
         { indirect          :: Bool
         , parameter         :: Parameter
-          -- ^ The substring offset.
+          -- | The substring offset.
         , subOffset         :: Word
-          -- ^ The substring length, if any.
+          -- | The substring length, if any.
         , subLength         :: Word
         }
-      -- ^ Variable prefixes.
     | Prefix
-        { -- ^ The variable prefix.
+        { -- | The variable prefix.
           prefix            :: String
-          -- ^ Either @\@@ of @*@.
+          -- | Either @\@@ of @*@.
         , modifier          :: Char
         }
-      -- ^ Array indices.
     | Indices
         { parameter         :: Parameter
         }
-      -- ^ Expansion length.
     | Length
         { parameter         :: Parameter
         }
-      -- ^ Pattern deletion.
     | Delete
         { indirect          :: Bool
         , parameter         :: Parameter
-          -- ^ Replace the longest match instead of the shortest match.
+          -- | Replace the longest match instead of the shortest match.
         , longest           :: Bool
-          -- ^ Where to delete from.
+          -- | Where to delete from.
         , deleteDirection   :: Direction
-          -- ^ The replacement pattern.
+          -- | The replacement pattern.
         , pattern           :: Word
         }
     | Replace
         { indirect          :: Bool
         , parameter         :: Parameter
-          -- ^ Replace all occurences.
+          -- | Replace all occurences.
         , replaceAll        :: Bool
-          -- ^ Where to replace.
+          -- | Where to replace.
         , replaceDirection  :: Maybe Direction
         , pattern           :: Word
-          -- ^ The replacement string.
+          -- | The replacement string.
         , replacement       :: Word
         }
     | LetterCase
         { indirect          :: Bool
         , parameter         :: Parameter
-          -- ^ Convert to lowercase, not uppercase.
+          -- | Convert to lowercase, not uppercase.
         , letterCaseOp      :: LetterCaseOp
-          -- ^ Convert all characters, not only the starts of words.
+          -- | Convert all characters, not only the starts of words.
         , convertAll        :: Bool
         , pattern           :: Word
         }

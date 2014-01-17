@@ -48,39 +48,39 @@ instance Pretty Command where
 
 -- | A Bash command.
 data ShellCommand
-    -- | A simple command consisting of assignments followed by words.
+      -- | A simple command consisting of assignments followed by words.
     = SimpleCommand [Assign] [Word]
-    -- | The shell builtins @declare@, @eval@, @export@, @local@, @readonly@,
-    -- and @typeset@ can accept both assignments and words as arguments.
+      -- | The shell builtins @declare@, @eval@, @export@, @local@, @readonly@,
+      -- and @typeset@ can accept both assignments and words as arguments.
     | AssignBuiltin Word [Either Assign Word]
-    -- | A function name and definition.
+      -- | A function name and definition.
     | FunctionDef String List
-    -- | A named coprocess.
+      -- | A named coprocess.
     | Coproc String Command
-    -- | A @(...)@ list, denoting a subshell.
+      -- | A @(...)@ list, denoting a subshell.
     | Subshell List
-    -- | A @{...}@ list.
+      -- | A @{...}@ list.
     | Group List
-    -- | An arithmetic expression.
+      -- | An arithmetic expression.
     | Arith String
-    -- | A Bash @[[...]]@ conditional expression.
+      -- | A Bash @[[...]]@ conditional expression.
     | Cond (CondExpr Word)
-    -- | A @for /word/ in /words/@ command. If @in /words/@ is absent,
-    -- the word list defaults to @\"$\@\"@.
+      -- | A @for /word/ in /words/@ command. If @in /words/@ is absent,
+      -- the word list defaults to @\"$\@\"@.
     | For Word [Word] List
-    -- | An arithmetic @for ((...))@ command.
+      -- | An arithmetic @for ((...))@ command.
     | ArithFor String List
-    -- | A @select /word/ in /words/@ command. If @in /words/@ is absent,
-    -- the word list defaults to @\"$\@\"@.
+      -- | A @select /word/ in /words/@ command. If @in /words/@ is absent,
+      -- the word list defaults to @\"$\@\"@.
     | Select Word [Word] List
-    -- | A @case@ command.
+      -- | A @case@ command.
     | Case Word [CaseClause]
-    -- | An @if@ command, with a predicate, consequent, and alternative.
-    -- @elif@ clauses are parsed as nested @if@ statements.
+      -- | An @if@ command, with a predicate, consequent, and alternative.
+      -- @elif@ clauses are parsed as nested @if@ statements.
     | If List List (Maybe List)
-    -- | An @until@ command.
+      -- | An @until@ command.
     | Until List List
-    -- | A @while@ command.
+      -- | A @while@ command.
     | While List List
     deriving (Eq, Read, Show)
 
@@ -141,7 +141,7 @@ instance Pretty CaseTerm where
 
 -- | A redirection.
 data Redir
-    -- | A redirection.
+      -- | A redirection.
     = Redir
         { -- | An optional file descriptor.
           redirDesc   :: Maybe IODesc
@@ -150,7 +150,7 @@ data Redir
           -- | The redirection target.
         , redirTarget :: Word
         }
-    -- | A here document.
+      -- | A here document.
     | Heredoc
         { -- | The here document operator.
           heredocOp          :: HeredocOp
@@ -182,9 +182,9 @@ instance Pretty Redir where
 
 -- | A redirection file descriptor.
 data IODesc
-    -- | A file descriptor number.
+      -- | A file descriptor number.
     = IONumber Int
-    -- | A variable @{/varname/}@ to allocate a file descriptor for.
+      -- | A variable @{/varname/}@ to allocate a file descriptor for.
     | IOVar String
     deriving (Eq, Read, Show)
 
@@ -247,10 +247,8 @@ instance Pretty Statement where
 
 -- | A statement terminator.
 data ListTerm
-    -- | The @;@ operator.
-    = Sequential
-    -- | The @&@ operator.
-    | Asynchronous
+    = Sequential    -- ^ @;@
+    | Asynchronous  -- ^ @&@
     deriving (Eq, Ord, Read, Show, Bounded, Enum)
 
 instance Operator ListTerm where
@@ -265,11 +263,11 @@ instance Pretty ListTerm where
 
 -- | A right-associative list of pipelines.
 data AndOr
-    -- | The last pipeline of a list.
+      -- | The last pipeline of a list.
     = Last Pipeline
-    -- | An @&&@ construct.
+      -- | A @&&@ construct.
     | And Pipeline AndOr
-    -- | An @||@ construct.
+      -- | A @||@ construct.
     | Or Pipeline AndOr
     deriving (Eq, Read, Show)
 
@@ -320,9 +318,9 @@ instance Pretty AssignOp where
 
 -- | The right side of an assignment.
 data RValue
-    -- | A simple word.
+      -- | A simple word.
     = RValue Word
-    -- | An array assignment, as @(subscript, word)@ pairs.
+      -- | An array assignment, as @(subscript, word)@ pairs.
     | RArray [(Maybe Word, Word)]
     deriving (Eq, Read, Show)
 

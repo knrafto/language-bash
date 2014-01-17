@@ -1,12 +1,11 @@
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
--- | Low-level parsers.
+-- | Word-level parsers.
 module Language.Bash.Parse.Internal
     ( skipSpace
     , arith
     , word
     , heredocWord
     , name
-    , subscript
     , assign
     , operator
     ) where
