@@ -2,6 +2,8 @@
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand
+    , TildePrefix(..)
+    , tildePrefix
     , splitWord
     ) where
 
@@ -12,6 +14,7 @@ import Data.Traversable
 import Text.Parsec.Combinator hiding (optional, manyTill)
 import Text.Parsec.Prim       hiding ((<|>), many, token)
 import Text.Parsec.String     ()
+import Text.PrettyPrint       hiding (char)
 
 import Language.Bash.Pretty
 import Language.Bash.Word
@@ -58,8 +61,8 @@ noneOf :: [Char] -> Parser Span
 noneOf cs = except (`elem` cs)
 
 -- | Read a number.
-fromNumber :: MonadPlus m => String -> m Int
-fromNumber s = case s of
+readNumber :: MonadPlus m => String -> m Int
+readNumber s = case s of
     '+':s' -> readNumber s'
     _      -> readNumber s
   where
@@ -68,9 +71,9 @@ fromNumber s = case s of
         _         -> mzero
 
 -- | Read a letter.
-fromAlpha :: MonadPlus m => String -> m Char
-fromAlpha [c] | isAlpha c = return c
-fromAlpha _               = mzero
+readAlpha :: MonadPlus m => String -> m Char
+readAlpha [c] | isAlpha c = return c
+readAlpha _               = mzero
 
 -- | Create a list from a start value, an end value, and an increment.
 enum :: (Ord a, Enum a) => a -> a -> Maybe Int -> [a]
@@ -106,19 +109,19 @@ braceExpand = parseUnsafe "braceExpand" (go "")
         a   <- sequencePart
         b   <- string ".." *> sequencePart
         c   <- optional (string ".." *> sequencePart)
-        inc <- traverse fromNumber c
+        inc <- traverse readNumber c
         map fromString <$> (numExpand a b inc <|> charExpand a b inc)
       where
         sequencePart = many1 (satisfy isAlphaNum)
 
     charExpand a b inc = do
-        x <- fromAlpha a
-        y <- fromAlpha b
+        x <- readAlpha a
+        y <- readAlpha b
         return . map (:[]) $ enum x y inc
 
     numExpand a b inc = do
-        x <- fromNumber a
-        y <- fromNumber b
+        x <- readNumber a
+        y <- readNumber b
         return . map showPadded $ enum x y inc
       where
         width = max (length a) (length b)
@@ -134,6 +137,37 @@ braceExpand = parseUnsafe "braceExpand" (go "")
             | otherwise = replicate (w - length s) '0' ++ s
           where
             s = show n
+
+-- | A tilde prefix.
+data TildePrefix
+    = Home              -- ^ @~/foo@
+    | UserHome String   -- ^ @~fred/foo@
+    | PWD               -- ^ @~+/foo@
+    | OldPWD            -- ^ @~-/foo@
+    | Dirs Int          -- ^ @~N@, @~+N@, @~-N@
+    deriving (Eq, Read, Show)
+
+instance Pretty TildePrefix where
+    pretty Home         = "~"
+    pretty (UserHome s) = "~" <> text s
+    pretty PWD          = "~+"
+    pretty OldPWD       = "~-"
+    pretty (Dirs n)     = "~" <> int n
+
+-- | Strip the tilde prefix of a word, if any.
+tildePrefix :: Word -> Maybe (TildePrefix, Word)
+tildePrefix w = case parseUnsafe "tildePrefix" prefix w of
+    ('~':s, w') -> Just (readPrefix s, w')
+    _           -> Nothing
+  where
+    prefix = (,) <$> many (satisfy (/= '/')) <*> getInput
+
+    readPrefix s
+        | s == ""                = Home
+        | s == "+"               = PWD
+        | s == "-"               = OldPWD
+        | Just n <- readNumber s = Dirs n
+        | otherwise              = UserHome s
 
 -- | Split a word on delimiters.
 splitWord :: [Char] -> Word -> [Word]
