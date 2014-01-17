@@ -380,15 +380,17 @@ coproc = word "coproc" *> coprocCommand <?> "coprocess"
 -- | Parse a function definition.
 functionDef :: Parser ShellCommand
 functionDef = functionDef2
-          </> functionDef1
+          <|> functionDef1
           <?> "function definition"
   where
-    functionDef1 = FunctionDef <$ word "function" <*> anyWord
-               <*  optional functionParens <* newlineList
+    functionDef1 = FunctionDef
+               <$> try (word "function" *> (prettyText <$> anyWord)
+                        <* optional functionParens <* newlineList)
                <*> functionBody
 
-    functionDef2 = FunctionDef <$> unreservedWord
-               <*  functionParens <* newlineList
+    functionDef2 = FunctionDef
+               <$> try ((prettyText <$> unreservedWord)
+                        <*  functionParens <* newlineList)
                <*> functionBody
 
     functionParens = operator "(" <* operator ")"
