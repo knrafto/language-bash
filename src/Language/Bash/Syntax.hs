@@ -65,14 +65,14 @@ data ShellCommand
     | Arith String
       -- | A Bash @[[...]]@ conditional expression.
     | Cond (CondExpr Word)
-      -- | A @for /word/ in /words/@ command. If @in /words/@ is absent,
+      -- | A @for /name/ in /words/@ command. If @in /words/@ is absent,
       -- the word list defaults to @\"$\@\"@.
-    | For Word [Word] List
+    | For String [Word] List
       -- | An arithmetic @for ((...))@ command.
     | ArithFor String List
-      -- | A @select /word/ in /words/@ command. If @in /words/@ is absent,
+      -- | A @select /name/ in /words/@ command. If @in /words/@ is absent,
       -- the word list defaults to @\"$\@\"@.
-    | Select Word [Word] List
+    | Select String [Word] List
       -- | A @case@ command.
     | Case Word [CaseClause]
       -- | An @if@ command, with a predicate, consequent, and alternative.

@@ -305,11 +305,11 @@ forCommand = word "for" *> (arithFor_ <|> for_)
   where
     arithFor_ = ArithFor <$> arith <* optional listTerm <*> doGroup
 
-    for_ = For <$> anyWord <*> wordList <*> doGroup
+    for_ = For <$> name <*> wordList <*> doGroup
 
 -- | Parse a @select@ command.
 selectCommand :: Parser ShellCommand
-selectCommand = Select <$ word "select" <*> anyWord <*> wordList <*> doGroup
+selectCommand = Select <$ word "select" <*> name <*> wordList <*> doGroup
 
 -- | Parse an @if@ command.
 ifCommand :: Parser ShellCommand
