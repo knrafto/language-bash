@@ -294,7 +294,7 @@ wordSpan = try (Escape <$ char '\\' <*> anyChar)
 
 -- | Parse a word.
 word :: Stream s m Char => ParsecT s u m Word
-word = spans " \t\n$|;()<>" True wordSpan
+word = spans " \t\n&|;()<>" True wordSpan
 
 -- | Parse a here document as a word. This parses substitutions, but not
 -- most quoting.
