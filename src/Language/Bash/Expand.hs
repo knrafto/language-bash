@@ -88,15 +88,19 @@ braceExpand :: Word -> [Word]
 braceExpand = parseUnsafe "braceExpand" (go "")
   where
     go delims = try (brace delims)
-            <|> (:[]) <$> many (noneOf delims)
+            <|> advance delims
+            <|> return [""]
 
     brace delims = do
-        a  <- many (noneOf ('{':delims))
         _  <- char '{'
-        bs <- try sequenceExpand <|> braceParts
+        as <- try sequenceExpand <|> braceParts
         _  <- char '}'
-        cs <- go delims
-        return [ a ++ b ++ c | b <- bs, c <- cs ]
+        bs <- go delims
+        return [ a ++ b | a <- as, b <- bs]
+
+    advance delims = do
+        c <- noneOf delims
+        map (c :) <$> go delims
 
     braceParts = concatParts <$> go ",}" `sepBy` char ','
 
