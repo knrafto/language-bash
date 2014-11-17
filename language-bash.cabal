@@ -47,3 +47,17 @@ library
     transformers >= 0.2 && < 0.4
 
   ghc-options: -Wall
+
+test-suite tests
+  type: exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: Tests.hs
+
+  build-depends:
+    base,
+    language-bash,
+    parsec,
+    process,
+    QuickCheck,
+    tasty,
+    tasty-quickcheck
