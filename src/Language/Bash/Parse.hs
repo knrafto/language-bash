@@ -20,7 +20,7 @@ import           Language.Bash.Operator
 import           Language.Bash.Parse.Internal
 import           Language.Bash.Pretty
 import           Language.Bash.Syntax
-import           Language.Bash.Word           (Word, fromString, unquote)
+import           Language.Bash.Word           (fromString, unquote)
 
 -- | User state.
 data U = U { postHeredoc :: Maybe (State D U) }
@@ -291,13 +291,13 @@ untilCommand = Until <$ word "until"
            <*  word "do" <*> compoundList <* word "done"
 
 -- | Parse a list of words for a @for@ or @select@ command.
-wordList :: Parser [Word]
-wordList = ["$@\""] <$ operator ";" <* newlineList
+wordList :: Parser WordList
+wordList = Args <$ operator ";" <* newlineList
        <|> newlineList *> inList
        <?> "word list"
   where
-    inList = word "in" *> many anyWord <* listTerm
-         <|> return ["$@\""]
+    inList = WordList <$ word "in" <*> many anyWord <* listTerm
+         <|> pure Args
 
 -- | Parse a @for@ command.
 forCommand :: Parser ShellCommand

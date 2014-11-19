@@ -5,6 +5,7 @@ module Language.Bash.Syntax
       -- * Commands
       Command(..)
     , ShellCommand(..)
+    , WordList(..)
     , CaseClause(..)
     , CaseTerm(..)
       -- * Redirections
@@ -67,12 +68,12 @@ data ShellCommand
     | Cond (CondExpr Word)
       -- | A @for /name/ in /words/@ command. If @in /words/@ is absent,
       -- the word list defaults to @\"$\@\"@.
-    | For String [Word] List
+    | For String WordList List
       -- | An arithmetic @for ((...))@ command.
     | ArithFor String List
       -- | A @select /name/ in /words/@ command. If @in /words/@ is absent,
       -- the word list defaults to @\"$\@\"@.
-    | Select String [Word] List
+    | Select String WordList List
       -- | A @case@ command.
     | Case Word [CaseClause]
       -- | An @if@ command, with a predicate, consequent, and alternative.
@@ -100,11 +101,11 @@ instance Pretty ShellCommand where
     pretty (Cond e) =
         "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
-        "for" <+> pretty w <+> "in" <+> pretty ws <> ";" $+$ doDone l
+        "for" <+> pretty w <+> pretty ws <> ";" $+$ doDone l
     pretty (ArithFor s l) =
         "for" <+> "((" <> text s <> "))" $+$ doDone l
     pretty (Select w ws l) =
-        "select" <+> pretty w <+> "in" <+> pretty ws <> ";" $+$ doDone l
+        "select" <+> pretty w <+> pretty ws <> ";" $+$ doDone l
     pretty (Case w cs) =
         "case" <+> pretty w <+> "in" $+$ indent cs $+$ "esac"
     pretty (If p t f) =
@@ -115,6 +116,16 @@ instance Pretty ShellCommand where
         "until" <+> pretty p <+> doDone l
     pretty (While p l) =
         "while" <+> pretty p <+> doDone l
+
+-- | A word list or @\"$\@\"@.
+data WordList
+    = Args
+    | WordList [Word]
+    deriving (Eq, Read, Show)
+
+instance Pretty WordList where
+    pretty Args          = empty
+    pretty (WordList ws) = "in" <+> pretty ws
 
 -- | A single case clause.
 data CaseClause = CaseClause [Word] List CaseTerm
