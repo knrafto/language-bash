@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings, PatternGuards #-}
+{-# LANGUAGE OverloadedStrings, PatternGuards #-}
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand
@@ -17,10 +17,16 @@ import Text.Parsec.String     ()
 import Text.PrettyPrint       hiding (char)
 
 import Language.Bash.Pretty
-import Language.Bash.Word
+import Language.Bash.Word     hiding (prefix)
 
 -- | A parser over words.
 type Parser = Parsec Word ()
+
+infixl 3 </>
+
+-- | Backtracking choice.
+(</>) :: ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
+p </> q = try p <|> q
 
 -- | Run a 'Parser', failing on a parse error.
 parseUnsafe :: String -> Parser a -> Word -> a
@@ -33,27 +39,35 @@ token :: (Span -> Maybe a) -> Parser a
 token = tokenPrim (const "") (\pos _ _ -> pos)
 
 -- | Parse an unquoted character satisfying a predicate.
-satisfy :: (Char -> Bool) -> Parser Char
-satisfy p = token $ \case
+satisfy :: (Char -> Bool) -> Parser Span
+satisfy p = token $ \t -> case t of
+    Char c | p c -> Just t
+    _            -> Nothing
+
+-- | Parse an unquoted character satisfying a predicate.
+satisfy' :: (Char -> Bool) -> Parser Char
+satisfy' p = token $ \t -> case t of
     Char c | p c -> Just c
     _            -> Nothing
 
 -- | Parse a span that is not an unquoted character satisfying a predicate.
 except :: (Char -> Bool) -> Parser Span
-except p = token $ \case
+except p = token $ \t -> case t of
     Char c | p c -> Nothing
-    s            -> Just s
+    _            -> Just t
 
 -- | Parse an unquoted character.
-char :: Char -> Parser Char
-char c = satisfy (== c)
+char :: Char -> Parser Span
+char c = token $ \t -> case t of
+    Char d | c == d -> Just t
+    _               -> Nothing
 
 -- | Parse an unquoted string.
-string :: String -> Parser String
+string :: String -> Parser Word
 string = traverse char
 
 -- | Parse one of the given characters.
-oneOf :: [Char] -> Parser Char
+oneOf :: [Char] -> Parser Span
 oneOf cs = satisfy (`elem` cs)
 
 -- | Parse anything but a quoted character.
@@ -85,28 +99,41 @@ enum x y inc = map toEnum [fromEnum x, fromEnum x + step .. fromEnum y]
 
 -- | Brace expand a word.
 braceExpand :: Word -> [Word]
-braceExpand = parseUnsafe "braceExpand" (go "")
+braceExpand = parseUnsafe "braceExpand" start
   where
-    go delims = try (brace delims)
-            <|> advance delims
-            <|> return [""]
+    prefix a bs = map (a ++) bs
+    cross as bs = [a ++ b | a <- as, b <- bs]
 
-    brace delims = do
-        _  <- char '{'
-        as <- try sequenceExpand <|> braceParts
-        _  <- char '}'
-        bs <- go delims
-        return [ a ++ b | a <- as, b <- bs]
+    -- A beginning empty brace is ignored.
+    start = prefix <$> string "{}" <*> expr ""
+        </> expr ""
 
-    advance delims = do
-        c <- noneOf delims
-        map (c :) <$> go delims
+    expr delims = foldr ($) [""] <$> many (exprPart delims)
 
-    braceParts = concatParts <$> go ",}" `sepBy` char ','
+    exprPart delims = cross <$ char '{' <*> brace delims <* char '}'
+                  </> prefix <$> emptyBrace
+                  </> prefix . (:[]) <$> noneOf delims
 
-    concatParts []   = ["{}"]
-    concatParts [xs] = map (\x -> "{" ++ x ++ "}") xs
-    concatParts xss  = concat xss
+    brace delims = concat <$> braceParts delims
+               </> sequenceExpand
+               </> map (\s -> "{" ++ s ++ "}") <$> expr ",}"
+
+    -- The first part of the outermost brace expression is not delimited by
+    -- a close brace.
+    braceParts delims =
+        (:) <$> expr (if ',' `elem` delims then ",}" else ",") <* char ','
+            <*> expr ",}" `sepBy1` char ','
+
+    emptyBrace = do
+        a <- token $ \t -> case t of
+            Char c   | c `elem` ws -> Just t
+            Escape c | c `elem` ws -> Just t
+            _                      -> Nothing
+        b <- char '{'
+        c <- char '}' <|> oneOf ws
+        return [a, b, c]
+      where
+        ws = " \t\r\n"
 
     sequenceExpand = do
         a   <- sequencePart
@@ -115,7 +142,7 @@ braceExpand = parseUnsafe "braceExpand" (go "")
         inc <- traverse readNumber c
         map fromString <$> (numExpand a b inc <|> charExpand a b inc)
       where
-        sequencePart = many1 (satisfy isAlphaNum)
+        sequencePart = many1 (satisfy' isAlphaNum)
 
     charExpand a b inc = do
         x <- readAlpha a
@@ -163,7 +190,7 @@ tildePrefix w = case parseUnsafe "tildePrefix" split w of
     ('~':s, w') -> Just (readPrefix s, w')
     _           -> Nothing
   where
-    split = (,) <$> many (satisfy (/= '/')) <*> getInput
+    split = (,) <$> many (satisfy' (/= '/')) <*> getInput
 
     readPrefix s
         | s == ""                = Home
