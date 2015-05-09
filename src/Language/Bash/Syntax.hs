@@ -107,7 +107,7 @@ instance Pretty ShellCommand where
     pretty (Select w ws l) =
         "select" <+> pretty w <+> pretty ws <> ";" $+$ doDone l
     pretty (Case w cs) =
-        "case" <+> pretty w <+> "in" $+$ indent cs $+$ "esac"
+        "case" <+> pretty w <+> "in" $+$ (vcat $ map indent cs) $+$ "esac"
     pretty (If p t f) =
         "if" <+> pretty p <+> "then" $+$ indent t $+$
         pretty (fmap (\l -> "else" $+$ indent l) f) $+$
@@ -135,7 +135,7 @@ instance Pretty CaseClause where
     pretty (CaseClause ps l term) =
         hcat (punctuate " | " (map pretty ps)) <> ")" $+$
         indent l $+$
-        pretty term
+        (indent $ pretty term)
 
 -- | A case clause terminator.
 data CaseTerm
