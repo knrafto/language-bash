@@ -25,6 +25,8 @@ module Language.Bash.Syntax
     , RValue(..)
     ) where
 
+import Prelude hiding (Word)
+
 import Text.PrettyPrint
 
 import Language.Bash.Cond     (CondExpr)

@@ -15,8 +15,6 @@ module Language.Bash.Cond
 import Prelude                hiding (negate)
 
 import Control.Applicative
-import Data.Foldable          (Foldable)
-import Data.Traversable       (Traversable)
 import Text.Parsec            hiding ((<|>), token)
 import Text.Parsec.Expr       hiding (Operator)
 import Text.PrettyPrint       hiding (parens)

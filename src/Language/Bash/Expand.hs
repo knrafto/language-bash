@@ -7,10 +7,11 @@ module Language.Bash.Expand
     , splitWord
     ) where
 
+import Prelude hiding (Word)
+
 import Control.Applicative
 import Control.Monad
 import Data.Char
-import Data.Traversable
 import Text.Parsec.Combinator hiding (optional, manyTill)
 import Text.Parsec.Prim       hiding ((<|>), many, token)
 import Text.Parsec.String     ()

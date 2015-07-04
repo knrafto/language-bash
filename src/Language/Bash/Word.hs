@@ -23,6 +23,8 @@ module Language.Bash.Word
     , unquote
     ) where
 
+import Prelude hiding (Word)
+
 import qualified Data.String
 import           Text.PrettyPrint
 

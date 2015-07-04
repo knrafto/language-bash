@@ -11,6 +11,8 @@ module Language.Bash.Parse.Word
     , operator
     ) where
 
+import Prelude hiding (Word)
+
 import           Control.Applicative
 import           Control.Monad
 import           Data.Char
