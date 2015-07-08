@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, RecordWildCards #-}
 -- | Shell script types.
 module Language.Bash.Syntax
     (
@@ -27,6 +27,8 @@ module Language.Bash.Syntax
 
 import Prelude hiding (Word)
 
+import Data.Data        (Data)
+import Data.Typeable    (Typeable)
 import Text.PrettyPrint
 
 import Language.Bash.Cond     (CondExpr)
@@ -44,7 +46,7 @@ doDone a = "do" $+$ indent a $+$ "done"
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty Command where
     pretty (Command c rs) = pretty c <+> pretty rs
@@ -85,7 +87,7 @@ data ShellCommand
     | Until List List
       -- | A @while@ command.
     | While List List
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty ShellCommand where
     pretty (SimpleCommand as ws)  = pretty as <+> pretty ws
@@ -123,7 +125,7 @@ instance Pretty ShellCommand where
 data WordList
     = Args
     | WordList [Word]
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty WordList where
     pretty Args          = empty
@@ -131,7 +133,7 @@ instance Pretty WordList where
 
 -- | A single case clause.
 data CaseClause = CaseClause [Word] List CaseTerm
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty CaseClause where
     pretty (CaseClause ps l term) =
@@ -144,7 +146,7 @@ data CaseTerm
     = Break        -- ^ @;;@
     | FallThrough  -- ^ @;&@
     | Continue     -- ^ @;;&@
-    deriving (Eq, Ord, Read, Show, Bounded, Enum)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Bounded, Enum)
 
 instance Operator CaseTerm where
     operatorTable = zip [minBound .. maxBound] [";;", ";&", ";;&"]
@@ -176,7 +178,7 @@ data Redir
           -- and command substitutions take place.
         , hereDocument       :: Word
         }
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty Redir where
     pretty Redir{..} =
@@ -199,7 +201,7 @@ data IODesc
     = IONumber Int
       -- | A variable @{/varname/}@ to allocate a file descriptor for.
     | IOVar String
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty IODesc where
     pretty (IONumber n) = int n
@@ -217,7 +219,7 @@ data RedirOp
     | InAnd       -- ^ @\<&@
     | OutAnd      -- ^ @\>&@
     | InOut       -- ^ @\<\>@
-    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
 
 instance Operator RedirOp where
     operatorTable = zip [minBound .. maxBound]
@@ -230,7 +232,7 @@ instance Pretty RedirOp where
 data HeredocOp
     = Here       -- ^ @\<\<@
     | HereStrip  -- ^ @\<\<-@
-    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
 
 instance Operator HeredocOp where
     operatorTable = zip [Here, HereStrip] ["<<", "<<-"]
@@ -240,14 +242,14 @@ instance Pretty HeredocOp where
 
 -- | A compound list of statements.
 newtype List = List [Statement]
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty List where
     pretty (List as) = pretty as
 
 -- | A single statement in a list.
 data Statement = Statement AndOr ListTerm
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty Statement where
     pretty (Statement l Sequential)   = pretty l <> ";"
@@ -262,7 +264,7 @@ instance Pretty Statement where
 data ListTerm
     = Sequential    -- ^ @;@
     | Asynchronous  -- ^ @&@
-    deriving (Eq, Ord, Read, Show, Bounded, Enum)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Bounded, Enum)
 
 instance Operator ListTerm where
     operatorTable =
@@ -282,7 +284,7 @@ data AndOr
     | And Pipeline AndOr
       -- | A @||@ construct.
     | Or Pipeline AndOr
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty AndOr where
     pretty (Last p)  = pretty p
@@ -301,7 +303,7 @@ data Pipeline = Pipeline
       -- @command1 |& command2@ is treated as a shorthand for
       -- @command1 2>&1 | command2@.
     , commands   :: [Command]
-    } deriving (Eq, Read, Show)
+    } deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty Pipeline where
     pretty Pipeline{..} =
@@ -312,7 +314,7 @@ instance Pretty Pipeline where
 
 -- | An assignment.
 data Assign = Assign Parameter AssignOp RValue
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty Assign where
     pretty (Assign lhs op rhs) = pretty lhs <> pretty op <> pretty rhs
@@ -321,7 +323,7 @@ instance Pretty Assign where
 data AssignOp
     = Equals      -- ^ @=@
     | PlusEquals  -- ^ @+=@
-    deriving (Eq, Ord, Read, Show, Bounded, Enum)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Bounded, Enum)
 
 instance Operator AssignOp where
     operatorTable = zip [Equals, PlusEquals] ["=", "+="]
@@ -335,7 +337,7 @@ data RValue
     = RValue Word
       -- | An array assignment, as @(subscript, word)@ pairs.
     | RArray [(Maybe Word, Word)]
-    deriving (Eq, Read, Show)
+    deriving (Data, Eq, Read, Show, Typeable)
 
 instance Pretty RValue where
     pretty (RValue w)  = pretty w
