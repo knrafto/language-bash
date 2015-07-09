@@ -36,6 +36,8 @@ module Language.Bash.Parse.Internal
     , heredocWord
     ) where
 
+import Prelude hiding (Word)
+
 import           Control.Applicative
 import           Control.Monad
 import           Data.Function

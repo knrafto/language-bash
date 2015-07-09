@@ -1,5 +1,6 @@
 {-# LANGUAGE
-    DeriveFoldable
+    DeriveDataTypeable
+  , DeriveFoldable
   , DeriveFunctor
   , DeriveTraversable
   , OverloadedStrings
@@ -15,8 +16,8 @@ module Language.Bash.Cond
 import Prelude                hiding (negate)
 
 import Control.Applicative
-import Data.Foldable          (Foldable)
-import Data.Traversable       (Traversable)
+import Data.Data              (Data)
+import Data.Typeable          (Typeable)
 import Text.Parsec            hiding ((<|>), token)
 import Text.Parsec.Expr       hiding (Operator)
 import Text.PrettyPrint       hiding (parens)
@@ -31,7 +32,7 @@ data CondExpr a
     | Not (CondExpr a)
     | And (CondExpr a) (CondExpr a)
     | Or (CondExpr a) (CondExpr a)
-    deriving (Eq, Read, Show, Functor, Foldable, Traversable)
+    deriving (Data, Eq, Read, Show, Typeable, Functor, Foldable, Traversable)
 
 instance Pretty a => Pretty (CondExpr a) where
     pretty = go (0 :: Int)
@@ -70,7 +71,7 @@ data UnaryOp
     | Varname        -- ^ @-v@
     | ZeroString     -- ^ @-z@
     | NonzeroString  -- ^ @-n /string/@ or @/string/@
-    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
 
 instance Operator UnaryOp where
     operatorTable =
@@ -99,7 +100,7 @@ data BinaryOp
     | ArithLE    -- ^ @-le@
     | ArithGT    -- ^ @-gt@
     | ArithGE    -- ^ @-ge@
-    deriving (Eq, Ord, Read, Show, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
 
 instance Operator BinaryOp where
     operatorTable =
