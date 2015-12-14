@@ -24,7 +24,7 @@ braceExpr = concat <$> listOf charset
 
 expandWithBash :: String -> IO String
 expandWithBash str = do
-    expn <- readProcess "/bin/bash" ["-c", "echo " ++ str] ""
+    expn <- readProcess "/usr/bin/env" ["bash", "-c", "echo " ++ str] ""
     return $ filter (`notElem` "\r\n") expn
 
 testExpand :: String -> [String]

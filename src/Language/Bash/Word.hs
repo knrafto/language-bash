@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DeriveDataTypeable
   , FlexibleInstances
+  , CPP
   , OverloadedStrings
   , RecordWildCards
   , TypeSynonymInstances
@@ -24,7 +25,9 @@ module Language.Bash.Word
     , unquote
     ) where
 
+#if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding (Word)
+#endif
 
 import           Data.Data        (Data)
 import qualified Data.String

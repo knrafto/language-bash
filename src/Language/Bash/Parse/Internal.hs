@@ -2,6 +2,7 @@
     FlexibleContexts
   , FlexibleInstances
   , LambdaCase
+  , CPP
   , MultiParamTypeClasses
   , OverloadedStrings
   , PatternGuards
@@ -36,7 +37,9 @@ module Language.Bash.Parse.Internal
     , heredocWord
     ) where
 
+#if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding (Word)
+#endif
 
 import           Control.Applicative
 import           Control.Monad
