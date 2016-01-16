@@ -61,4 +61,5 @@ test-suite tests
     process,
     QuickCheck,
     tasty,
-    tasty-quickcheck
+    tasty-quickcheck,
+    tasty-hunit
