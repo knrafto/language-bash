@@ -18,7 +18,6 @@ import           Text.Parsec.Prim             hiding (parse, (<|>))
 import qualified Language.Bash.Cond           as Cond
 import           Language.Bash.Operator
 import           Language.Bash.Parse.Internal
-import           Language.Bash.Pretty
 import           Language.Bash.Syntax
 import           Language.Bash.Word           (fromString, unquote)
 
@@ -384,13 +383,12 @@ functionDef = functionDef2
           <?> "function definition"
   where
     functionDef1 = FunctionDef
-               <$> try (word "function" *> (prettyText <$> anyWord)
+               <$> try (word "function" *> name
                         <* optional functionParens <* newlineList)
                <*> functionBody
 
     functionDef2 = FunctionDef
-               <$> try ((prettyText <$> unreservedWord)
-                        <*  functionParens <* newlineList)
+               <$> try (name <* functionParens <* newlineList)
                <*> functionBody
 
     functionParens = operator "(" <* operator ")"
