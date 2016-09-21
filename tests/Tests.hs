@@ -47,23 +47,24 @@ prop_expandsLikeBash = monadicIO $ forAllM braceExpr $ \str -> do
 properties :: TestTree
 properties = testGroup "Properties" [testProperty "brace expansion" prop_expandsLikeBash]
 
-testTest = testCase "testTest" $
-           case Cond.parseTestExpr ["!", "-e", "\"asd\""] of
-             { Left err -> assertFailure ("parseError: " ++ (show err))
-             ; Right ans -> (Cond.Not (Cond.Unary Cond.FileExists "\"asd\"")) @=? ans
-             }
+testParse name parsed expected = testCase "testTest" $
+           case parsed of
+               Left err -> assertFailure $ "parseError: " ++ (show err)
+               Right ans -> expected @=? ans
 
-testDoubleQuoted = testCase "testDoubleQuoted" $
-           case Parse.parse "source" "\"$(ls)\"" of
-             { Left err -> assertFailure ("parseError: " ++ (show err))
-             ; Right ans -> (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) []]})) Sequential]) @=? ans
-             }
 
-testEmptyArrayAssignment = testCase "testEmptyArrayAssignment" $
-           case Parse.parse "source" "arguments=()\n" of
-             { Left err -> assertFailure ("parseError: " ++ (show err))
-             ; Right ans -> (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) []]})) Sequential]) @=? ans
-             }
+testTest = testParse "testTest"
+  (Cond.parseTestExpr ["!", "-e", "\"asd\""])
+  (Cond.Not (Cond.Unary Cond.FileExists "\"asd\""))
+
+testDoubleQuoted = testParse "testDoubleQuoted"
+  (Parse.parse "source" "\"$(ls)\"")
+  (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) []]})) Sequential])
+
+
+testEmptyArrayAssignment = testParse "testEmptyArrayAssignment"
+  (Parse.parse "source" "arguments=()\n")
+  (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) []]})) Sequential])
 
 unittests :: TestTree
 unittests = testGroup "Unit tests" [testTest, testDoubleQuoted, testEmptyArrayAssignment]
