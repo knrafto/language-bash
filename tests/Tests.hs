@@ -17,6 +17,7 @@ import           Language.Bash.Expand     (braceExpand)
 import           Language.Bash.Parse.Word (word)
 import           Language.Bash.Word       (unquote)
 import qualified Language.Bash.Pretty     as Pretty
+
 -- TODO sequence
 braceExpr :: Gen String
 braceExpr = concat <$> listOf charset
@@ -47,27 +48,30 @@ prop_expandsLikeBash = monadicIO $ forAllM braceExpr $ \str -> do
 properties :: TestTree
 properties = testGroup "Properties" [testProperty "brace expansion" prop_expandsLikeBash]
 
-testParse name parsed expected = testCase "testTest" $
+testMatches name parsed expected = testCase name $
            case parsed of
                Left err -> assertFailure $ "parseError: " ++ (show err)
                Right ans -> expected @=? ans
 
-
-testTest = testParse "testTest"
-  (Cond.parseTestExpr ["!", "-e", "\"asd\""])
-  (Cond.Not (Cond.Unary Cond.FileExists "\"asd\""))
-
-testDoubleQuoted = testParse "testDoubleQuoted"
-  (Parse.parse "source" "\"$(ls)\"")
-  (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) []]})) Sequential])
+wrapCommand s = (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command s []]})) Sequential])
+tp source expected = testMatches source
+                                 (Parse.parse "source" source)
+                                 (wrapCommand expected)
 
 
-testEmptyArrayAssignment = testParse "testEmptyArrayAssignment"
-  (Parse.parse "source" "arguments=()\n")
-  (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) []]})) Sequential])
 
 unittests :: TestTree
-unittests = testGroup "Unit tests" [testTest, testDoubleQuoted, testEmptyArrayAssignment]
+unittests = testGroup "Unit tests"
+  [
+    testMatches "testTest"
+      (Cond.parseTestExpr ["!", "-e", "\"asd\""])
+      (Cond.Not (Cond.Unary Cond.FileExists "\"asd\""))
+  , tp "\"$(ls)\""
+      (SimpleCommand [] [[Double [CommandSubst "ls"]]])
+  , tp "arguments=()"
+      (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] [])
+  ]
+
 
 tests :: TestTree
 tests = testGroup "Tests" [properties, unittests]
