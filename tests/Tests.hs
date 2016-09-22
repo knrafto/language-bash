@@ -23,7 +23,7 @@ import           Language.Bash.Parse.Word (word)
 braceExpr :: Gen String
 braceExpr = concat <$> listOf charset
   where
-    charset = oneof $
+    charset = oneof
         [ elements ["{", ",", "}"]
         , elements ["\\ ", "\\{", "\\,", "\\}"]
         , (:[]) <$> elements ['a'..'z']
@@ -52,11 +52,11 @@ properties = testGroup "Properties" [testProperty "brace expansion" prop_expands
 testMatches :: (Eq a, Show a) => TestName -> Either Text.Parsec.Error.ParseError a -> a -> TestTree
 testMatches name parsed expected = testCase name $
            case parsed of
-               Left err -> assertFailure $ "parseError: " ++ (show err)
+               Left err -> assertFailure $ "parseError: " ++ show err
                Right ans -> expected @=? ans
 
 wrapCommand :: Command -> List
-wrapCommand c = (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]})) Sequential])
+wrapCommand c = List [Statement (Last Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]}) Sequential]
 
 tp :: TestName -> Command -> TestTree
 tp source expected = testMatches source
