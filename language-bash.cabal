@@ -1,11 +1,11 @@
 name:               language-bash
-version:            0.6.1
+version:            0.6.2
 category:           Language
 license:            BSD3
 license-file:       LICENSE
 author:             Kyle Raftogianis
 maintainer:         Kyle Raftogianis <kylerafto@gmail.com>
-copyright:          Copyright (c) 2013-2015 Kyle Raftogianis
+copyright:          Copyright (c) 2013-2016 Kyle Raftogianis
 build-type:         Simple
 cabal-version:      >= 1.8
 homepage:           http://github.com/knrafto/language-bash/
