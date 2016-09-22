@@ -59,11 +59,12 @@ wrapCommand :: Command -> List
 wrapCommand c = List [Statement (Last Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]}) Sequential]
 
 tp :: TestName -> Command -> TestTree
-tp source expected = testMatches source
+tp source expected = testMatches (filter ((/=) '\n') source)
                                  (Parse.parse "source" source)
                                  (wrapCommand expected)
 
-
+expandString :: String -> [Span]
+expandString = map Char
 
 unittests :: TestTree
 unittests = testGroup "Unit tests"
@@ -75,21 +76,28 @@ unittests = testGroup "Unit tests"
       (Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) [])
   , tp "arguments=()"
       (Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) [])
-  ]
-
-failingtests :: TestTree
-failingtests = testGroup "Unit tests" (map expectFail
-  [
-    tp "cat <<EOF\n    asd\\`\nEOF"
+  , tp "cat <<EOF\nasd\\`\nEOF"
        (Command
-        (SimpleCommand [] [[Char 'c',Char 'a',Char 't']])
+        (SimpleCommand [] [expandString "cat"])
         [Heredoc {heredocOp = Here,
                   heredocDelim = "EOF",
                   heredocDelimQuoted = False,
-                  hereDocument = [Char ' ',Char ' ',Char ' ',Char ' ',
-                                  Char 'a',Char 's',Char 'd',Escape '`',
+                  hereDocument = [Char 'a',Char 's',Char 'd',Escape '`',
                                   Char '\n']}])
-  , tp "echo $((2+2))"
+  , tp "cat <<\"EOF\"\nasd\\`\nEOF"
+       (Command
+        (SimpleCommand [] [expandString "cat"])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF",
+                  heredocDelimQuoted = True,
+                  hereDocument = expandString "asd\\`\n"}])
+
+  ]
+
+failingtests :: TestTree
+failingtests = testGroup "Failing tests" (map expectFail
+  [
+    tp "echo $((2+2))"
        (Command (Arith "2 + 2") [])
   ])
 
