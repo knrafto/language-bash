@@ -8,6 +8,7 @@ import           Test.Tasty
 import           Test.Tasty.QuickCheck
 import           Test.Tasty.HUnit
 import           Text.Parsec              (parse)
+import           Test.Tasty.ExpectedFailure (expectFail)
 
 import qualified Language.Bash.Parse      as Parse
 import           Language.Bash.Syntax
@@ -53,7 +54,7 @@ testMatches name parsed expected = testCase name $
                Left err -> assertFailure $ "parseError: " ++ (show err)
                Right ans -> expected @=? ans
 
-wrapCommand s = (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command s []]})) Sequential])
+wrapCommand c = (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]})) Sequential])
 tp source expected = testMatches source
                                  (Parse.parse "source" source)
                                  (wrapCommand expected)
@@ -67,14 +68,29 @@ unittests = testGroup "Unit tests"
       (Cond.parseTestExpr ["!", "-e", "\"asd\""])
       (Cond.Not (Cond.Unary Cond.FileExists "\"asd\""))
   , tp "\"$(ls)\""
-      (SimpleCommand [] [[Double [CommandSubst "ls"]]])
+      (Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) [])
   , tp "arguments=()"
-      (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] [])
+      (Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) [])
   ]
 
+failingtests :: TestTree
+failingtests = testGroup "Unit tests" (map expectFail
+  [
+    tp "cat <<EOF\n    asd\\`\nEOF"
+       (Command
+        (SimpleCommand [] [[Char 'c',Char 'a',Char 't']])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF",
+                  heredocDelimQuoted = False,
+                  hereDocument = [Char ' ',Char ' ',Char ' ',Char ' ',
+                                  Char 'a',Char 's',Char 'd',Escape '`',
+                                  Char '\n']}])
+  , tp "echo $((2+2))"
+       (Command (Arith "2 + 2") [])
+  ])
 
 tests :: TestTree
-tests = testGroup "Tests" [properties, unittests]
+tests = testGroup "Tests" [properties, unittests, failingtests]
 
 main :: IO ()
 main = defaultMain tests
