@@ -154,10 +154,10 @@ backquote = Backquote <$> matchedPair '`' '`' False escape
 
 -- | Parse an arithmetic expression.
 arith :: Stream s m Char => ParsecT s u m String
-arith = B.toString <$> parens <?> "arithmetic expression"
+arith = B.toString <$> arithPart <?> "arithmetic expression"
   where
-    parens = B.many inner
-    inner  = B.matchedPair '(' ')' parens
+    arithPart = B.many inner
+    inner     = B.noneOf "()" <|> B.char '(' <+> arithPart <+> B.char ')'
 
 -- | Parse a parenthesized substitution.
 subst :: Stream s m Char => ParsecT s u m String

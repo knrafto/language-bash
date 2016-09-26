@@ -91,15 +91,21 @@ unittests = testGroup "Unit tests"
                   heredocDelim = "EOF",
                   heredocDelimQuoted = True,
                   hereDocument = expandString "asd\\`\n"}])
-
+  , tp "echo $((2 + 2))"
+       (Command
+        (SimpleCommand [] [expandString "echo", [ArithSubst "2 + 2"]])
+        [])
+  , tp "((2 + 2))"
+       (Command (Arith "2 + 2") [])
+  , tp "echo $(((2 + 2)))"
+       (Command
+        (SimpleCommand [] [expandString "echo", [ArithSubst "(2 + 2)"]])
+        [])
   ]
 
 failingtests :: TestTree
 failingtests = testGroup "Failing tests" (map expectFail
-  [
-    tp "echo $((2+2))"
-       (Command (Arith "2 + 2") [])
-  ])
+  [])
 
 tests :: TestTree
 tests = testGroup "Tests" [properties, unittests, failingtests]
