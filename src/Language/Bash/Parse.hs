@@ -119,8 +119,8 @@ redir = normalRedir
             heredocDelimQuoted = fromString heredocDelim /= w
         h <- heredoc (heredocOp == HereStrip) heredocDelim
         hereDocument <- if heredocDelimQuoted
-                        then heredocWord h
-                        else return (fromString h)
+                        then return (fromString h)
+                        else heredocWord h
         return Heredoc{..}
 
     redirOperator   = selectOperator operator <?> "redirection operator"

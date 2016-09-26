@@ -1,13 +1,16 @@
 module Main (main) where
 
-import           Control.Applicative
+import           Control.Applicative ((<$>))
 import           System.Process           (readProcess)
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic  as QCM
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
 import           Test.Tasty.HUnit
+import           Test.Tasty.ExpectedFailure (expectFail)
 import           Text.Parsec              (parse)
+import           Text.Parsec.Error (ParseError)
+
 
 import qualified Language.Bash.Parse      as Parse
 import           Language.Bash.Syntax
@@ -15,13 +18,12 @@ import qualified Language.Bash.Cond       as Cond
 import           Language.Bash.Word
 import           Language.Bash.Expand     (braceExpand)
 import           Language.Bash.Parse.Word (word)
-import           Language.Bash.Word       (unquote)
-import qualified Language.Bash.Pretty     as Pretty
+
 -- TODO sequence
 braceExpr :: Gen String
 braceExpr = concat <$> listOf charset
   where
-    charset = oneof $
+    charset = oneof
         [ elements ["{", ",", "}"]
         , elements ["\\ ", "\\{", "\\,", "\\}"]
         , (:[]) <$> elements ['a'..'z']
@@ -47,29 +49,60 @@ prop_expandsLikeBash = monadicIO $ forAllM braceExpr $ \str -> do
 properties :: TestTree
 properties = testGroup "Properties" [testProperty "brace expansion" prop_expandsLikeBash]
 
-testTest = testCase "testTest" $
-           case Cond.parseTestExpr ["!", "-e", "\"asd\""] of
-             { Left err -> assertFailure ("parseError: " ++ (show err))
-             ; Right ans -> (Cond.Not (Cond.Unary Cond.FileExists "\"asd\"")) @=? ans
-             }
+testMatches :: (Eq a, Show a) => TestName -> Either Text.Parsec.Error.ParseError a -> a -> TestTree
+testMatches name parsed expected = testCase name $
+           case parsed of
+               Left err -> assertFailure $ "parseError: " ++ show err
+               Right ans -> expected @=? ans
 
-testDoubleQuoted = testCase "testDoubleQuoted" $
-           case Parse.parse "source" "\"$(ls)\"" of
-             { Left err -> assertFailure ("parseError: " ++ (show err))
-             ; Right ans -> (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) []]})) Sequential]) @=? ans
-             }
+wrapCommand :: Command -> List
+wrapCommand c = List [Statement (Last Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]}) Sequential]
 
-testEmptyArrayAssignment = testCase "testEmptyArrayAssignment" $
-           case Parse.parse "source" "arguments=()\n" of
-             { Left err -> assertFailure ("parseError: " ++ (show err))
-             ; Right ans -> (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands = [Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) []]})) Sequential]) @=? ans
-             }
+tp :: TestName -> Command -> TestTree
+tp source expected = testMatches (filter ((/=) '\n') source)
+                                 (Parse.parse "source" source)
+                                 (wrapCommand expected)
+
+expandString :: String -> [Span]
+expandString = map Char
 
 unittests :: TestTree
-unittests = testGroup "Unit tests" [testTest, testDoubleQuoted, testEmptyArrayAssignment]
+unittests = testGroup "Unit tests"
+  [
+    testMatches "testTest"
+      (Cond.parseTestExpr ["!", "-e", "\"asd\""])
+      (Cond.Not (Cond.Unary Cond.FileExists "\"asd\""))
+  , tp "\"$(ls)\""
+      (Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) [])
+  , tp "arguments=()"
+      (Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) [])
+  , tp "cat <<EOF\nasd\\`\nEOF"
+       (Command
+        (SimpleCommand [] [expandString "cat"])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF",
+                  heredocDelimQuoted = False,
+                  hereDocument = [Char 'a',Char 's',Char 'd',Escape '`',
+                                  Char '\n']}])
+  , tp "cat <<\"EOF\"\nasd\\`\nEOF"
+       (Command
+        (SimpleCommand [] [expandString "cat"])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF",
+                  heredocDelimQuoted = True,
+                  hereDocument = expandString "asd\\`\n"}])
+
+  ]
+
+failingtests :: TestTree
+failingtests = testGroup "Failing tests" (map expectFail
+  [
+    tp "echo $((2+2))"
+       (Command (Arith "2 + 2") [])
+  ])
 
 tests :: TestTree
-tests = testGroup "Tests" [properties, unittests]
+tests = testGroup "Tests" [properties, unittests, failingtests]
 
 main :: IO ()
 main = defaultMain tests

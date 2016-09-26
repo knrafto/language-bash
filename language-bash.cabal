@@ -1,11 +1,11 @@
 name:               language-bash
-version:            0.6.1
+version:            0.6.2
 category:           Language
 license:            BSD3
 license-file:       LICENSE
 author:             Kyle Raftogianis
 maintainer:         Kyle Raftogianis <kylerafto@gmail.com>
-copyright:          Copyright (c) 2013-2015 Kyle Raftogianis
+copyright:          Copyright (c) 2013-2016 Kyle Raftogianis
 build-type:         Simple
 cabal-version:      >= 1.8
 homepage:           http://github.com/knrafto/language-bash/
@@ -45,7 +45,7 @@ library
     base         >= 4.6 && < 5,
     parsec       >= 3.0 && < 4.0,
     pretty       >= 1.0 && < 2.0,
-    transformers >= 0.2 && < 0.5
+    transformers >= 0.2 && < 0.6
 
   ghc-options: -Wall
 
@@ -62,4 +62,5 @@ test-suite tests
     QuickCheck,
     tasty,
     tasty-quickcheck,
-    tasty-hunit
+    tasty-hunit,
+    tasty-expected-failure
