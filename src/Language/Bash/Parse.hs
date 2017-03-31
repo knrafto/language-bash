@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE RecordWildCards #-}
 -- | Bash script and input parsing.
 module Language.Bash.Parse
     ( parse
@@ -19,7 +19,7 @@ import qualified Language.Bash.Cond           as Cond
 import           Language.Bash.Operator
 import           Language.Bash.Parse.Internal
 import           Language.Bash.Syntax
-import           Language.Bash.Word           (fromString, unquote)
+import           Language.Bash.Word           (unquote, stringToWord)
 
 -- | User state.
 data U = U { postHeredoc :: Maybe (State D U) }
@@ -116,10 +116,10 @@ redir = normalRedir
         heredocOp <- heredocOperator
         w <- anyWord
         let heredocDelim = unquote w
-            heredocDelimQuoted = fromString heredocDelim /= w
+            heredocDelimQuoted = stringToWord heredocDelim /= w
         h <- heredoc (heredocOp == HereStrip) heredocDelim
         hereDocument <- if heredocDelimQuoted
-                        then return (fromString h)
+                        then return (stringToWord h)
                         else heredocWord h
         return Heredoc{..}
 
@@ -214,7 +214,7 @@ pipelineCommand = time
 
     addRedir (Command c rs) = Command c (stderrRedir : rs)
 
-    stderrRedir = Redir (Just (IONumber 2)) OutAnd "1"
+    stderrRedir = Redir (Just (IONumber 2)) OutAnd (stringToWord "1")
 
 -- | Parse a compound list of commands.
 compoundList :: Parser List
@@ -351,11 +351,11 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
         , [Infix  (Cond.Or  <$ operator "||") AssocLeft]
         ]
 
-    condWord = anyWord `satisfying` (/= "]]")
-           <|> fromString <$> anyOperator
+    condWord = anyWord `satisfying` (/= stringToWord "]]")
+           <|> stringToWord <$> anyOperator
            <?> "word"
 
-    condOperator op = condWord `satisfying` (== fromString op) <?> op
+    condOperator op = condWord `satisfying` (== stringToWord op) <?> op
 
     unaryOp  = selectOperator condOperator <?> "unary operator"
     binaryOp = selectOperator condOperator <?> "binary operator"

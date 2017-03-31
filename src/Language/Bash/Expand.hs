@@ -113,7 +113,7 @@ braceExpand = parseUnsafe "braceExpand" start
     start = prefix <$> string "{}" <*> expr ""
         </> expr ""
 
-    expr delims = foldr ($) [""] <$> many (exprPart delims)
+    expr delims = foldr ($) [[]] <$> many (exprPart delims)
 
     exprPart delims = cross <$ char '{' <*> brace delims <* char '}'
                   </> prefix <$> emptyBrace
@@ -121,7 +121,7 @@ braceExpand = parseUnsafe "braceExpand" start
 
     brace delims = concat <$> braceParts delims
                </> sequenceExpand
-               </> map (\s -> "{" ++ s ++ "}") <$> expr ",}"
+               </> map (\s -> stringToWord "{" ++ s ++ stringToWord "}") <$> expr ",}"
 
     -- The first part of the outermost brace expression is not delimited by
     -- a close brace.
@@ -145,7 +145,7 @@ braceExpand = parseUnsafe "braceExpand" start
         b   <- string ".." *> sequencePart
         c   <- optional (string ".." *> sequencePart)
         inc <- traverse readNumber c
-        map fromString <$> (numExpand a b inc <|> charExpand a b inc)
+        map stringToWord <$> (numExpand a b inc <|> charExpand a b inc)
       where
         sequencePart = many1 (satisfy' isAlphaNum)
 

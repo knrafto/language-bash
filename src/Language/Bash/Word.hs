@@ -1,6 +1,5 @@
 {-# LANGUAGE
     DeriveDataTypeable
-  , FlexibleInstances
   , CPP
   , OverloadedStrings
   , RecordWildCards
@@ -8,7 +7,7 @@
   #-}
 -- | Bash words and substitutions.
 module Language.Bash.Word
-    ( 
+    (
       -- * Words
       Word
     , Span(..)
@@ -21,7 +20,7 @@ module Language.Bash.Word
       -- * Process
     , ProcessSubstOp(..)
       -- * Manipulation
-    , fromString
+    , stringToWord
     , unquote
     ) where
 
@@ -30,7 +29,6 @@ import Prelude hiding (Word)
 #endif
 
 import           Data.Data        (Data)
-import qualified Data.String
 import           Data.Typeable    (Typeable)
 import           Text.PrettyPrint
 
@@ -39,9 +37,6 @@ import           Language.Bash.Pretty
 
 -- | A Bash word, broken up into logical spans.
 type Word = [Span]
-
-instance Data.String.IsString Word where
-    fromString = fromString
 
 -- | An individual unit of a word.
 data Span
@@ -252,8 +247,8 @@ instance Pretty ProcessSubstOp where
     pretty = prettyOperator
 
 -- | Convert a string to an unquoted word.
-fromString :: String -> Word
-fromString = map Char
+stringToWord :: String -> Word
+stringToWord = map Char
 
 -- | Remove all quoting characters from a word.
 unquote :: Word -> String
