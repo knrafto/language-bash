@@ -4,7 +4,6 @@
   , LambdaCase
   , CPP
   , MultiParamTypeClasses
-  , OverloadedStrings
   , PatternGuards
   , RecordWildCards
   #-}
@@ -137,7 +136,7 @@ satisfying a p = try $ do
 
 -- | Shell reserved words.
 reservedWords :: [Word]
-reservedWords =
+reservedWords = map stringToWord
     [ "!", "[[", "]]", "{", "}"
     , "if", "then", "else", "elif", "fi"
     , "case", "esac", "for", "select", "while", "until"
@@ -147,7 +146,7 @@ reservedWords =
 -- | Shell assignment builtins. These builtins can take assignments as
 -- arguments.
 assignBuiltins :: [Word]
-assignBuiltins =
+assignBuiltins = map stringToWord
     [ "alias", "declare", "export", "eval"
     , "let", "local", "readonly", "typeset"
     ]
@@ -175,8 +174,8 @@ anyWord :: Monad m => ParsecT D u m Word
 anyWord = try (rat _anyWord) <?> "word"
 
 -- | Parse the given word.
-word :: Monad m => Word -> ParsecT D u m Word
-word w = anyWord `satisfying` (== w) <?> prettyText w
+word :: Monad m => String -> ParsecT D u m Word
+word w = anyWord `satisfying` (== stringToWord w) <?> prettyText w
 
 -- | Parse a reversed word.
 reservedWord :: Monad m => ParsecT D u m Word
