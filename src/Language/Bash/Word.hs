@@ -25,7 +25,7 @@ module Language.Bash.Word
     ) where
 
 #if __GLASGOW_HASKELL__ >= 710
-import Prelude hiding (Word)
+import Prelude hiding ((<>), Word)
 #endif
 
 import           Data.Data        (Data)

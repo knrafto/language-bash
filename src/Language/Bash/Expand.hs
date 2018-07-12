@@ -8,7 +8,7 @@ module Language.Bash.Expand
     ) where
 
 #if __GLASGOW_HASKELL__ >= 710
-import Prelude hiding (Word)
+import Prelude hiding ((<>), Word)
 #else
 import Data.Traversable (traverse)
 #endif
