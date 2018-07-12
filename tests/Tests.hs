@@ -1,6 +1,7 @@
 module Main (main) where
 
 import           Control.Applicative ((<$>))
+import           Control.Monad
 import           System.Process           (readProcess)
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic  as QCM
@@ -44,7 +45,15 @@ prop_expandsLikeBash :: Property
 prop_expandsLikeBash = monadicIO $ forAllM braceExpr $ \str -> do
     bash <- run $ expandWithBash str
     let check = unwords . filter (not . null) $ testExpand str
-    QCM.assert (bash == check)
+    when (bash /= check) $ do
+      run $ putStrLn "FAIL"
+      run $ putStrLn "input:"
+      run $ putStrLn str
+      run $ putStrLn "bash output:"
+      run $ putStrLn bash
+      run $ putStrLn "test output:"
+      run $ putStrLn check
+      QCM.assert False
 
 properties :: TestTree
 properties = testGroup "Properties" [testProperty "brace expansion" prop_expandsLikeBash]
