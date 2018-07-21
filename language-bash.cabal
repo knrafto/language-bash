@@ -4,7 +4,7 @@ category:           Language
 license:            BSD3
 license-file:       LICENSE
 author:             Kyle Raftogianis
-maintainer:         Kyle Raftogianis <kylerafto@gmail.com>
+maintainer:         Kyle Raftogianis <knrafto@gmail.com>
 copyright:          Copyright (c) 2013-2018 Kyle Raftogianis
 build-type:         Simple
 cabal-version:      >= 1.8
