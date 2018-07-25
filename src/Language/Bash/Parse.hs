@@ -128,7 +128,7 @@ redir = normalRedir
     redirOperator   = selectOperator operator <?> "redirection operator"
     heredocOperator = selectOperator operator <?> "here document operator"
 
--- | Skip a list of redirections.
+-- | Parse a list of redirections.
 redirList :: Parser [Redir]
 redirList = many redir
 
@@ -154,8 +154,9 @@ simpleCommand = do
     normalCommand = "simple command" ?: do
         (as, rs1) <- commandParts assign
         (ws, rs2) <- commandParts anyWord
-        guard (not $ null as && null ws)
-        return $ Command (SimpleCommand as ws) (rs1 ++ rs2)
+        let rs = rs1 ++ rs2
+        guard (not $ null as && null ws && null rs)
+        return $ Command (SimpleCommand as ws) rs
 
     assignArg = Left  <$> assign
             <|> Right <$> anyWord

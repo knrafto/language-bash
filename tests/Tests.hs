@@ -137,6 +137,13 @@ unittests = testGroup "Unit tests"
        (Command
         (For "function" (WordList [stringToWord "foo"])
           (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))) [])
+  , tp "<<EOF\ncomment\nEOF" $ wrapCommand
+       (Command
+        (SimpleCommand [] [])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF",
+                  heredocDelimQuoted = False,
+                  hereDocument = stringToWord "comment\n"}])
   ]
 
 failingtests :: TestTree
