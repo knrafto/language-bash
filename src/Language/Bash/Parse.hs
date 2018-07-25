@@ -383,12 +383,12 @@ functionDef = functionDef2
           <?> "function definition"
   where
     functionDef1 = FunctionDef
-               <$> try (word "function" *> name
+               <$> try (word "function" *> functionName
                         <* optional functionParens <* newlineList)
                <*> functionBody
 
     functionDef2 = FunctionDef
-               <$> try (name <* functionParens <* newlineList)
+               <$> try (functionName <* functionParens <* newlineList)
                <*> functionBody
 
     functionParens = operator "(" <* operator ")"

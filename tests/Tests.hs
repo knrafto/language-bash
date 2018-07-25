@@ -110,6 +110,11 @@ unittests = testGroup "Unit tests"
        (Command
         (SimpleCommand [] [expandString "echo", [ArithSubst "(2 + 2)"]])
         [])
+  , tp "function-name-with-dashes() { :; }"
+       (Command
+        (FunctionDef "function-name-with-dashes"
+          (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands =
+            [Command (SimpleCommand [] [[Char ':']]) []]})) Sequential])) [])
   ]
 
 failingtests :: TestTree

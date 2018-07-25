@@ -6,6 +6,7 @@ module Language.Bash.Parse.Word
     , word
     , heredocWord
     , name
+    , functionName
     , subscript
     , assign
     , operator
@@ -315,6 +316,13 @@ name = (:) <$> nameStart <*> many nameLetter
   where
     nameStart  = letter   <|> char '_'
     nameLetter = alphaNum <|> char '_'
+
+-- | Parse a function name.
+functionName :: Stream s m Char => ParsecT s u m String
+functionName = (:) <$> nameStart <*> many nameLetter
+  where
+    nameStart  = letter   <|> char '_' <|> char '-'
+    nameLetter = alphaNum <|> char '_' <|> char '-'
 
 -- | Parse a special parameter name.
 specialName :: Stream s m Char => ParsecT s u m String

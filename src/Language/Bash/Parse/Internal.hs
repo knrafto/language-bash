@@ -25,6 +25,7 @@ module Language.Bash.Parse.Internal
     , assignBuiltin
     , ioDesc
     , name
+    , functionName
       -- * Operators
     , anyOperator
     , operator
@@ -200,6 +201,15 @@ name :: Monad m => ParsecT D u m String
 name = (prettyText <$> unreservedWord) `satisfying` isName <?> "name"
   where
     isName s = case parse (I.name <* eof) "" (prettyText s) of
+        Left _  -> False
+        Right _ -> True
+
+-- | Parse a function name.
+functionName :: Monad m => ParsecT D u m String
+functionName = (prettyText <$> unreservedWord) `satisfying` isFunctionName
+   <?> "function name"
+  where
+    isFunctionName s = case parse (I.functionName <* eof) "" (prettyText s) of
         Left _  -> False
         Right _ -> True
 
