@@ -43,8 +43,8 @@ indent :: Pretty a => a -> Doc
 indent = nest 4 . pretty
 
 -- | Render a @do...done@ block.
-doDone :: Pretty a => a -> Doc
-doDone a = "do" $+$ indent a $+$ "done"
+doDone :: Pretty a => Doc -> a -> Doc
+doDone header body = header <+> "do" $+$ indent body $+$ "done"
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
@@ -107,11 +107,11 @@ instance Pretty ShellCommand where
     pretty (Cond e) =
         "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
-        "for" <+> pretty w <+> pretty ws <> ";" $+$ doDone l
+        doDone ("for" <+> pretty w <+> pretty ws <> ";") l
     pretty (ArithFor s l) =
-        "for" <+> "((" <> text s <> "))" $+$ doDone l
+        doDone ("for" <+> "((" <> text s <> "))") l
     pretty (Select w ws l) =
-        "select" <+> pretty w <+> pretty ws <> ";" $+$ doDone l
+        doDone ("select" <+> pretty w <+> pretty ws <> ";") l
     pretty (Case w cs) =
         "case" <+> pretty w <+> "in" $+$ (vcat $ map indent cs) $+$ "esac"
     pretty (If p t f) =
@@ -119,9 +119,9 @@ instance Pretty ShellCommand where
         pretty (fmap (\l -> "else" $+$ indent l) f) $+$
         "fi"
     pretty (Until p l) =
-        "until" <+> pretty p <+> doDone l
+        doDone ("until" <+> pretty p) l
     pretty (While p l) =
-        "while" <+> pretty p <+> doDone l
+        doDone ("while" <+> pretty p) l
 
 -- | A word list or @\"$\@\"@.
 data WordList
