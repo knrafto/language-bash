@@ -340,7 +340,7 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
   where
     expr = buildExpressionParser opTable term
 
-    term = word "(" *> expr <* word ")"
+    term = operator "(" *> expr <* operator ")"
        <|> Cond.Unary <$> unaryOp <*> condWord
        <|> (condWord >>= wordTerm)
 
