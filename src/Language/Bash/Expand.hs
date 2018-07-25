@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, PatternGuards #-}
+{-# LANGUAGE OverloadedStrings, PatternGuards, DeriveGeneric #-}
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand
@@ -12,6 +12,7 @@ import Prelude hiding ((<>), Word)
 import Control.Applicative
 import Control.Monad
 import Data.Char
+import GHC.Generics (Generic)
 import Text.Parsec.Combinator hiding (optional, manyTill)
 import Text.Parsec.Prim       hiding ((<|>), many, token)
 import Text.Parsec.String     ()
@@ -176,7 +177,7 @@ data TildePrefix
     | PWD               -- ^ @~+/foo@
     | OldPWD            -- ^ @~-/foo@
     | Dirs Int          -- ^ @~N@, @~+N@, @~-N@
-    deriving (Eq, Read, Show)
+    deriving (Eq, Read, Show, Generic)
 
 instance Pretty TildePrefix where
     pretty Home         = "~"
