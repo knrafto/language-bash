@@ -21,7 +21,6 @@ module Language.Bash.Parse.Internal
     , anyWord
     , word
     , reservedWord
-    , unreservedWord
     , assignBuiltin
     , ioDesc
     , name
@@ -182,11 +181,6 @@ word w = anyWord `satisfying` (== stringToWord w) <?> prettyText w
 reservedWord :: Monad m => ParsecT D u m Word
 reservedWord = anyWord `satisfying` (`elem` reservedWords) <?> "reserved word"
 
--- | Parse a word that is not reserved.
-unreservedWord :: Monad m => ParsecT D u m Word
-unreservedWord = anyWord `satisfying` (`notElem` reservedWords)
-    <?> "unreserved word"
-
 -- | Parse an assignment builtin.
 assignBuiltin :: Monad m => ParsecT D u m Word
 assignBuiltin = anyWord `satisfying` (`elem` assignBuiltins)
@@ -198,7 +192,7 @@ ioDesc = try (rat _ioDesc) <?> "IO descriptor"
 
 -- | Parse a variable name.
 name :: Monad m => ParsecT D u m String
-name = (prettyText <$> unreservedWord) `satisfying` isName <?> "name"
+name = (prettyText <$> anyWord) `satisfying` isName <?> "name"
   where
     isName s = case parse (I.name <* eof) "" (prettyText s) of
         Left _  -> False
@@ -206,7 +200,7 @@ name = (prettyText <$> unreservedWord) `satisfying` isName <?> "name"
 
 -- | Parse a function name.
 functionName :: Monad m => ParsecT D u m String
-functionName = (prettyText <$> unreservedWord) `satisfying` isFunctionName
+functionName = (prettyText <$> anyWord) `satisfying` isFunctionName
    <?> "function name"
   where
     isFunctionName s = case parse (I.functionName <* eof) "" (prettyText s) of

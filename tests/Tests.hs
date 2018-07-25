@@ -110,6 +110,10 @@ unittests = testGroup "Unit tests"
        (Command
         (SimpleCommand [] [stringToWord "echo", [ArithSubst "(2 + 2)"]])
         [])
+  , tp "function foo() { true; }" $ wrapCommand
+       (Command
+        (FunctionDef "foo"
+          (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))) [])
   , tp "function-name-with-dashes-2.0() { true; }" $ wrapCommand
        (Command
         (FunctionDef "function-name-with-dashes-2.0"
@@ -129,6 +133,10 @@ unittests = testGroup "Unit tests"
       (Command (Cond (Cond.Not (Cond.Unary Cond.RegularFile (stringToWord "foo")))) [])
   , tp "[[ foo =~ a( b )c\" d\\\"\"[e]*' f '\\ g ]]" $ wrapCommand
       (Command (Cond (Cond.Binary (stringToWord "foo") Cond.StrMatch (stringToWord "a( b )c\" d\\\"\"[e]*' f '\\ g"))) [])
+  , tp "for function in foo; do true; done" $ wrapCommand
+       (Command
+        (For "function" (WordList [stringToWord "foo"])
+          (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))) [])
   ]
 
 failingtests :: TestTree
