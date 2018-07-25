@@ -21,6 +21,7 @@ module Language.Bash.Word
     , ProcessSubstOp(..)
       -- * Manipulation
     , stringToWord
+    , wordToString
     , unquote
     ) where
 
@@ -249,6 +250,14 @@ instance Pretty ProcessSubstOp where
 -- | Convert a string to an unquoted word.
 stringToWord :: String -> Word
 stringToWord = map Char
+
+-- | If a word is a plain, unquoted string (e.g. the result of @stringToWord@),
+-- returns @Just@ that string; otherwise, returns @Nothing@.
+wordToString :: Word -> Maybe String
+wordToString = traverse spanToChar
+  where
+    spanToChar (Char c) = Just c
+    spanToChar _        = Nothing
 
 -- | Remove all quoting characters from a word.
 unquote :: Word -> String
