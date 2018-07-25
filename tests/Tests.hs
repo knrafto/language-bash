@@ -64,16 +64,16 @@ testMatches name parsed expected = testCase name $
                Left err -> assertFailure $ "parseError: " ++ show err
                Right ans -> expected @=? ans
 
-wrapCommand :: Command -> List
-wrapCommand c = List [Statement (Last Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]}) Sequential]
+wrapCommands :: [Command] -> List
+wrapCommands = List . map (\c -> Statement (Last Pipeline {timed = False, timedPosix = False, inverted = False, commands = [c]}) Sequential)
 
-tp :: TestName -> Command -> TestTree
+wrapCommand :: Command -> List
+wrapCommand c = wrapCommands [c]
+
+tp :: TestName -> List -> TestTree
 tp source expected = testMatches (filter ((/=) '\n') source)
                                  (Parse.parse "source" source)
-                                 (wrapCommand expected)
-
-expandString :: String -> [Span]
-expandString = map Char
+                                 expected
 
 unittests :: TestTree
 unittests = testGroup "Unit tests"
@@ -81,40 +81,48 @@ unittests = testGroup "Unit tests"
     testMatches "testTest"
       (Cond.parseTestExpr ["!", "-e", "\"asd\""])
       (Cond.Not (Cond.Unary Cond.FileExists "\"asd\""))
-  , tp "\"$(ls)\""
+  , tp "\"$(ls)\"" $ wrapCommand
       (Command (SimpleCommand [] [[Double [CommandSubst "ls"]]]) [])
-  , tp "arguments=()"
+  , tp "arguments=()" $ wrapCommand
       (Command (SimpleCommand [Assign (Parameter "arguments" Nothing) Equals (RArray [])] []) [])
-  , tp "cat <<EOF\nasd\\`\nEOF"
+  , tp "cat <<EOF\nasd\\`\nEOF" $ wrapCommand
        (Command
-        (SimpleCommand [] [expandString "cat"])
+        (SimpleCommand [] [stringToWord "cat"])
         [Heredoc {heredocOp = Here,
                   heredocDelim = "EOF",
                   heredocDelimQuoted = False,
                   hereDocument = [Char 'a',Char 's',Char 'd',Escape '`',
                                   Char '\n']}])
-  , tp "cat <<\"EOF\"\nasd\\`\nEOF"
+  , tp "cat <<\"EOF\"\nasd\\`\nEOF" $ wrapCommand
        (Command
-        (SimpleCommand [] [expandString "cat"])
+        (SimpleCommand [] [stringToWord "cat"])
         [Heredoc {heredocOp = Here,
                   heredocDelim = "EOF",
                   heredocDelimQuoted = True,
-                  hereDocument = expandString "asd\\`\n"}])
-  , tp "echo $((2 + 2))"
+                  hereDocument = stringToWord "asd\\`\n"}])
+  , tp "echo $((2 + 2))" $ wrapCommand
        (Command
-        (SimpleCommand [] [expandString "echo", [ArithSubst "2 + 2"]])
+        (SimpleCommand [] [stringToWord "echo", [ArithSubst "2 + 2"]])
         [])
-  , tp "((2 + 2))"
+  , tp "((2 + 2))" $ wrapCommand
        (Command (Arith "2 + 2") [])
-  , tp "echo $(((2 + 2)))"
+  , tp "echo $(((2 + 2)))" $ wrapCommand
        (Command
-        (SimpleCommand [] [expandString "echo", [ArithSubst "(2 + 2)"]])
+        (SimpleCommand [] [stringToWord "echo", [ArithSubst "(2 + 2)"]])
         [])
-  , tp "function-name-with-dashes() { :; }"
+  , tp "function-name-with-dashes() { true; }" $ wrapCommand
        (Command
         (FunctionDef "function-name-with-dashes"
           (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands =
-            [Command (SimpleCommand [] [[Char ':']]) []]})) Sequential])) [])
+            [Command (SimpleCommand [] [(stringToWord "true")]) []]})) Sequential])) [])
+  , tp "cat <<EOF\nasd\nEOF\ntrue" $ wrapCommands
+       [Command
+        (SimpleCommand [] [stringToWord "cat"])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF",
+                  heredocDelimQuoted = False,
+                  hereDocument = stringToWord "asd\n"}],
+        Command (SimpleCommand [] [(stringToWord "true")]) []]
   ]
 
 failingtests :: TestTree
