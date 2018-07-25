@@ -114,9 +114,9 @@ unittests = testGroup "Unit tests"
        (Command
         (FunctionDef "foo"
           (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))) [])
-  , tp "function-name-with-dashes-2.0() { true; }" $ wrapCommand
+  , tp "!awesome-function-name-2.0+() { true; }" $ wrapCommand
        (Command
-        (FunctionDef "function-name-with-dashes-2.0"
+        (FunctionDef "!awesome-function-name-2.0+"
           (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))) [])
   , tp "cat <<EOF\nasd\nEOF\ntrue" $ wrapCommands
        [Command

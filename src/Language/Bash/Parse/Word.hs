@@ -323,7 +323,7 @@ functionName = (:) <$> nameStart <*> many nameLetter
   where
     nameStart  = letter   <|> specialChar
     nameLetter = alphaNum <|> specialChar
-    specialChar = oneOf "_-."
+    specialChar = oneOf "_-.+!"
 
 -- | Parse a special parameter name.
 specialName :: Stream s m Char => ParsecT s u m String
