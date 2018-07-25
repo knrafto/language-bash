@@ -110,11 +110,10 @@ unittests = testGroup "Unit tests"
        (Command
         (SimpleCommand [] [stringToWord "echo", [ArithSubst "(2 + 2)"]])
         [])
-  , tp "function-name-with-dashes() { true; }" $ wrapCommand
+  , tp "function-name-with-dashes-2.0() { true; }" $ wrapCommand
        (Command
-        (FunctionDef "function-name-with-dashes"
-          (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands =
-            [Command (SimpleCommand [] [stringToWord "true"]) []]})) Sequential])) [])
+        (FunctionDef "function-name-with-dashes-2.0"
+          (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))) [])
   , tp "cat <<EOF\nasd\nEOF\ntrue" $ wrapCommands
        [Command
         (SimpleCommand [] [stringToWord "cat"])
