@@ -125,13 +125,10 @@ unittests = testGroup "Unit tests"
   , tp "true\r\nfalse" $ wrapCommands
        [Command (SimpleCommand [] [stringToWord "true"]) [],
         Command (SimpleCommand [] [stringToWord "false"]) []]
-  , tp "if [[ ! ( -f foo ) ]]; then true; fi" $ wrapCommand
-      (Command
-        (If
-          (wrapCommand (Command (Cond (Cond.Not (Cond.Unary Cond.RegularFile (stringToWord "foo")))) []))
-          (wrapCommand (Command (SimpleCommand [] [stringToWord "true"]) []))
-           Nothing)
-        [])
+  , tp "[[ ! ( -f foo ) ]]" $ wrapCommand
+      (Command (Cond (Cond.Not (Cond.Unary Cond.RegularFile (stringToWord "foo")))) [])
+  , tp "[[ foo =~ a( b )c\" d\\\"\"[e]*' f '\\ g ]]" $ wrapCommand
+      (Command (Cond (Cond.Binary (stringToWord "foo") Cond.StrMatch (stringToWord "a( b )c\" d\\\"\"[e]*' f '\\ g"))) [])
   ]
 
 failingtests :: TestTree

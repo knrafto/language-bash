@@ -344,7 +344,8 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
        <|> Cond.Unary <$> unaryOp <*> condWord
        <|> (condWord >>= wordTerm)
 
-    wordTerm w = Cond.Binary w <$> binaryOp <*> condWord
+    wordTerm w = Cond.Binary w Cond.StrMatch <$ try (word "=~") <*> regexWord
+             <|> Cond.Binary w <$> binaryOp <*> condWord
              <|> pure (Cond.Unary Cond.NonzeroString w)
 
     opTable =
@@ -361,6 +362,39 @@ condCommand = Cond <$ word "[[" <*> expr <* word "]]"
 
     unaryOp  = selectOperator condOperator <?> "unary operator"
     binaryOp = selectOperator condOperator <?> "binary operator"
+
+    regexWord = stringToWord . concat <$> many1 (regexPart " \t\r\n") <* skipSpace
+            <?> "regular expression"
+
+    regexPart delims = regexParens
+                   <|> regexSingleQuote
+                   <|> regexDoubleQuote
+                   <|> regexEscape
+                   <|> regexChar delims
+
+    regexDelimiters :: Char -> Parser String -> Char -> Parser String
+    regexDelimiters begin middle end = do
+        _ <- char begin
+        parts <- many middle
+        _ <- char end
+        return $ [begin] ++ concat parts ++ [end]
+
+    regexParens = regexDelimiters '(' (regexPart ")") ')'
+
+    regexSingleQuote = regexDelimiters '\'' singleQuoteChar '\''
+      where
+        singleQuoteChar = sequence [char '\\', anyChar]
+                      <|> (:[]) <$> noneOf "'"
+
+    regexDoubleQuote = regexDelimiters '"' doubleQuoteChar '"'
+      where
+        doubleQuoteChar = sequence [char '\\', anyChar]
+                      <|> (:[]) <$> noneOf "\""
+
+    regexEscape = sequence [char '\\', anyChar]
+
+    regexChar :: [Char] -> Parser String
+    regexChar delims = (:[]) <$> noneOf delims
 
 -------------------------------------------------------------------------------
 -- Coprocesses
