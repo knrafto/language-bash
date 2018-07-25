@@ -71,7 +71,7 @@ wrapCommand :: Command -> List
 wrapCommand c = wrapCommands [c]
 
 tp :: TestName -> List -> TestTree
-tp source expected = testMatches (filter ((/=) '\n') source)
+tp source expected = testMatches (show source)
                                  (Parse.parse "source" source)
                                  expected
 
@@ -114,7 +114,7 @@ unittests = testGroup "Unit tests"
        (Command
         (FunctionDef "function-name-with-dashes"
           (List [Statement (Last (Pipeline {timed = False, timedPosix = False, inverted = False, commands =
-            [Command (SimpleCommand [] [(stringToWord "true")]) []]})) Sequential])) [])
+            [Command (SimpleCommand [] [stringToWord "true"]) []]})) Sequential])) [])
   , tp "cat <<EOF\nasd\nEOF\ntrue" $ wrapCommands
        [Command
         (SimpleCommand [] [stringToWord "cat"])
@@ -122,7 +122,10 @@ unittests = testGroup "Unit tests"
                   heredocDelim = "EOF",
                   heredocDelimQuoted = False,
                   hereDocument = stringToWord "asd\n"}],
-        Command (SimpleCommand [] [(stringToWord "true")]) []]
+        Command (SimpleCommand [] [stringToWord "true"]) []]
+  , tp "true\r\nfalse" $ wrapCommands
+       [Command (SimpleCommand [] [stringToWord "true"]) [],
+        Command (SimpleCommand [] [stringToWord "false"]) []]
   ]
 
 failingtests :: TestTree
