@@ -27,6 +27,8 @@ module Language.Bash.Word
 
 #if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding ((<>), Word)
+#else
+import Data.Traversable (traverse)
 #endif
 
 import           Data.Data        (Data)
