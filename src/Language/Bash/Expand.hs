@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, PatternGuards, CPP #-}
+{-# LANGUAGE OverloadedStrings, PatternGuards #-}
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand
@@ -7,11 +7,7 @@ module Language.Bash.Expand
     , splitWord
     ) where
 
-#if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding ((<>), Word)
-#else
-import Data.Traversable (traverse)
-#endif
 
 import Control.Applicative
 import Control.Monad

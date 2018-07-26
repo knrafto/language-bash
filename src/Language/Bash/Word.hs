@@ -1,6 +1,5 @@
 {-# LANGUAGE
     DeriveDataTypeable
-  , CPP
   , OverloadedStrings
   , RecordWildCards
   , TypeSynonymInstances
@@ -25,11 +24,7 @@ module Language.Bash.Word
     , unquote
     ) where
 
-#if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding ((<>), Word)
-#else
-import Data.Traversable (traverse)
-#endif
 
 import           Data.Data        (Data)
 import           Data.Typeable    (Typeable)

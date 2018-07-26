@@ -1,7 +1,6 @@
 {-# LANGUAGE
     DeriveDataTypeable
   , DeriveFoldable
-  , CPP
   , DeriveFunctor
   , DeriveTraversable
   , OverloadedStrings
@@ -22,11 +21,6 @@ import Data.Typeable          (Typeable)
 import Text.Parsec            hiding ((<|>), token)
 import Text.Parsec.Expr       hiding (Operator)
 import Text.PrettyPrint       hiding (parens)
-
-#if __GLASGOW_HASKELL__ < 710
-import Data.Foldable (Foldable)
-import Data.Traversable (Traversable)
-#endif
 
 import Language.Bash.Operator
 import Language.Bash.Pretty

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RecordWildCards, CPP #-}
+{-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 -- | Word-level parsers.
 module Language.Bash.Parse.Word
     ( skipSpace
@@ -12,9 +12,7 @@ module Language.Bash.Parse.Word
     , operator
     ) where
 
-#if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding (Word)
-#endif
 
 import           Control.Applicative
 import           Control.Monad

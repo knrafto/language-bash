@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, RecordWildCards, CPP #-}
+{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, RecordWildCards #-}
 -- | Shell script types.
 module Language.Bash.Syntax
     (
@@ -25,9 +25,7 @@ module Language.Bash.Syntax
     , RValue(..)
     ) where
 
-#if __GLASGOW_HASKELL__ >= 710
 import Prelude hiding ((<>), Word)
-#endif
 
 import Data.Data        (Data)
 import Data.Typeable    (Typeable)
