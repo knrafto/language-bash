@@ -1,5 +1,6 @@
 {-# LANGUAGE
     DeriveDataTypeable
+  , DeriveGeneric
   , OverloadedStrings
   , RecordWildCards
   , TypeSynonymInstances
@@ -28,6 +29,7 @@ import Prelude hiding ((<>), Word)
 
 import           Data.Data        (Data)
 import           Data.Typeable    (Typeable)
+import           GHC.Generics     (Generic)
 import           Text.PrettyPrint
 
 import           Language.Bash.Operator
@@ -61,7 +63,7 @@ data Span
     | CommandSubst String
       -- | A process substitution.
     | ProcessSubst ProcessSubstOp String
-    deriving (Data, Eq, Read, Show, Typeable)
+    deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Span where
     pretty (Char c)           = char c
@@ -80,7 +82,7 @@ instance Pretty Span where
 
 -- | A parameter name an optional subscript.
 data Parameter = Parameter String (Maybe Word)
-    deriving (Data, Eq, Read, Show, Typeable)
+    deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Parameter where
     pretty (Parameter s sub) = text s <> subscript sub
@@ -159,7 +161,7 @@ data ParamSubst
         , convertAll        :: Bool
         , pattern           :: Word
         }
-    deriving (Data, Eq, Read, Show, Typeable)
+    deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 prettyParameter :: Bool -> Parameter -> Doc -> Doc
 prettyParameter bang param suffix =
@@ -202,7 +204,7 @@ data AltOp
     | AltAssign   -- ^ '=', ':='
     | AltError    -- ^ '?', ':?'
     | AltReplace  -- ^ '+', ':+'
-    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded, Generic)
 
 instance Operator AltOp where
     operatorTable = zip [minBound .. maxBound] ["-", "=", "?", "+"]
@@ -214,7 +216,7 @@ instance Pretty AltOp where
 data LetterCaseOp
     = ToLower
     | ToUpper
-    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded, Generic)
 
 instance Operator LetterCaseOp where
     operatorTable = zip [ToLower, ToUpper] [",", "^"]
@@ -226,7 +228,7 @@ instance Pretty LetterCaseOp where
 data Direction
     = Front
     | Back
-    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded, Generic)
 
 instance Pretty Direction where
     pretty Front = "#"
@@ -236,7 +238,7 @@ instance Pretty Direction where
 data ProcessSubstOp
     = ProcessIn   -- ^ @\<@
     | ProcessOut  -- ^ @\>@
-    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded, Generic)
 
 instance Operator ProcessSubstOp where
     operatorTable = zip [ProcessIn, ProcessOut] ["<", ">"]

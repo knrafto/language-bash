@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, PatternGuards #-}
+{-# LANGUAGE OverloadedStrings, PatternGuards, DeriveGeneric #-}
 -- | Shell expansions.
 module Language.Bash.Expand
     ( braceExpand

@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DeriveDataTypeable
   , DeriveFoldable
+  , DeriveGeneric
   , DeriveFunctor
   , DeriveTraversable
   , OverloadedStrings
@@ -18,6 +19,7 @@ import Prelude                hiding (negate)
 import Control.Applicative
 import Data.Data              (Data)
 import Data.Typeable          (Typeable)
+import GHC.Generics           (Generic)
 import Text.Parsec            hiding ((<|>), token)
 import Text.Parsec.Expr       hiding (Operator)
 import Text.PrettyPrint       hiding (parens)
@@ -32,7 +34,7 @@ data CondExpr a
     | Not (CondExpr a)
     | And (CondExpr a) (CondExpr a)
     | Or (CondExpr a) (CondExpr a)
-    deriving (Data, Eq, Read, Show, Typeable, Functor, Foldable, Traversable)
+    deriving (Data, Eq, Read, Show, Typeable, Functor, Foldable, Traversable, Generic)
 
 instance Pretty a => Pretty (CondExpr a) where
     pretty = go (0 :: Int)
@@ -71,7 +73,7 @@ data UnaryOp
     | Varname        -- ^ @-v@
     | ZeroString     -- ^ @-z@
     | NonzeroString  -- ^ @-n /string/@ or @/string/@
-    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded, Generic)
 
 instance Operator UnaryOp where
     operatorTable =
@@ -100,7 +102,7 @@ data BinaryOp
     | ArithLE    -- ^ @-le@
     | ArithGT    -- ^ @-gt@
     | ArithGE    -- ^ @-ge@
-    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded)
+    deriving (Data, Eq, Ord, Read, Show, Typeable, Enum, Bounded, Generic)
 
 instance Operator BinaryOp where
     operatorTable =
