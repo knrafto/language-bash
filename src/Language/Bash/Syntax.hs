@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
 -- | Shell script types.
 module Language.Bash.Syntax
     (
@@ -37,6 +37,20 @@ import Language.Bash.Operator
 import Language.Bash.Pretty
 import Language.Bash.Word
 
+-- | A newtype wrapper that suppresses the printing of heredocs
+newtype NoHeredoc a = NoHeredoc a
+
+prettyHeredocs :: [Redir] -> Doc
+prettyHeredocs [] = empty
+prettyHeredocs rs = mconcat (map prettyHeredoc rs)
+    where
+        prettyHeredoc Heredoc{..} = pretty (prependNewline hereDocument) <> text heredocDelim
+        prettyHeredoc _ = empty
+
+        prependNewline []               = [Char '\n']
+        prependNewline xs@(Char '\n':_) = xs
+        prependNewline xs               = Char '\n' : xs
+
 -- | Indent by 4 columns.
 indent :: Pretty a => a -> Doc
 indent = nest 4 . pretty
@@ -50,7 +64,10 @@ data Command = Command ShellCommand [Redir]
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Command where
-    pretty (Command c rs) = pretty c <+> pretty rs
+    pretty c = pretty (NoHeredoc c) <> prettyHeredocs (commandHeredocs c)
+
+instance Pretty (NoHeredoc Command) where
+    pretty (NoHeredoc (Command c rs)) = pretty c <+> pretty rs
 
 commandHeredocs :: Command -> [Redir]
 commandHeredocs (Command _ rs) = filter isHeredoc rs
@@ -258,25 +275,13 @@ data Statement = Statement AndOr ListTerm
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Statement where
-    pretty (Statement l Sequential)   = pretty l <>  ";" <> prettyHeredocs l
-    pretty (Statement l Asynchronous) = pretty l <+> "&" <> prettyHeredocs l
+    pretty (Statement l Sequential)   = pretty l <>  ";" <> prettyHeredocs (andOrHeredocs l)
+    pretty (Statement l Asynchronous) = pretty l <+> "&" <> prettyHeredocs (andOrHeredocs l)
 
     prettyList = foldr f empty
       where
         f a@(Statement _ Sequential)   b = pretty a $+$ b
         f a@(Statement _ Asynchronous) b = pretty a <+> b
-
-prettyHeredocs :: AndOr -> Doc
-prettyHeredocs a = case andOrHeredocs a of
-    [] -> empty
-    rs -> mconcat (map prettyHeredoc rs)
-    where
-        prettyHeredoc Heredoc{..} = pretty (prependNewline hereDocument) <> text heredocDelim
-        prettyHeredoc _ = empty
-
-        prependNewline []               = [Char '\n']
-        prependNewline xs@(Char '\n':_) = xs
-        prependNewline xs               = Char '\n' : xs
 
 -- | A statement terminator.
 data ListTerm
@@ -305,9 +310,12 @@ data AndOr
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty AndOr where
-    pretty (Last p)  = pretty p
-    pretty (And p a) = pretty p <+> "&&" <+> pretty a
-    pretty (Or p a)  = pretty p <+> "||" <+> pretty a
+    pretty a  = pretty (NoHeredoc a) <> prettyHeredocs (andOrHeredocs a)
+
+instance Pretty (NoHeredoc AndOr) where
+    pretty (NoHeredoc (Last p) ) = pretty (NoHeredoc p)
+    pretty (NoHeredoc (And p a)) = pretty (NoHeredoc p) <+> "&&" <+> pretty (NoHeredoc a)
+    pretty (NoHeredoc (Or p a) ) = pretty (NoHeredoc p) <+> "||" <+> pretty (NoHeredoc a)
 
 andOrHeredocs :: AndOr -> [Redir]
 andOrHeredocs (Last p)  = pipelineHeredocs p
@@ -329,11 +337,14 @@ data Pipeline = Pipeline
     } deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Pipeline where
-    pretty Pipeline{..} =
+    pretty p = pretty (NoHeredoc p) <> prettyHeredocs (pipelineHeredocs p)
+
+instance Pretty (NoHeredoc Pipeline) where
+    pretty (NoHeredoc (Pipeline{..})) =
         (if timed      then "time" else empty) <+>
         (if timedPosix then "-p"   else empty) <+>
         (if inverted   then "!"    else empty) <+>
-        hcat (punctuate " | " (map pretty commands))
+        hcat (punctuate " | " (map (pretty . NoHeredoc) commands))
 
 pipelineHeredocs :: Pipeline -> [Redir]
 pipelineHeredocs Pipeline{..} = concatMap commandHeredocs commands
