@@ -52,6 +52,12 @@ data Command = Command ShellCommand [Redir]
 instance Pretty Command where
     pretty (Command c rs) = pretty c <+> pretty rs
 
+commandHeredocs :: Command -> [Redir]
+commandHeredocs (Command _ rs) = filter isHeredoc rs
+    where
+        isHeredoc (Heredoc {}) = True
+        isHeredoc _ = False
+
 -- | A Bash command.
 data ShellCommand
       -- | A simple command consisting of assignments followed by words.
@@ -272,20 +278,6 @@ prettyHeredocs a = case andOrHeredocs a of
         prependNewline xs@(Char '\n':_) = xs
         prependNewline xs               = Char '\n' : xs
 
-andOrHeredocs :: AndOr -> [Redir]
-andOrHeredocs (Last p)  = pipelineHeredocs p
-andOrHeredocs (And p a) = pipelineHeredocs p ++ andOrHeredocs a
-andOrHeredocs (Or p a)  = pipelineHeredocs p ++ andOrHeredocs a
-
-pipelineHeredocs :: Pipeline -> [Redir]
-pipelineHeredocs Pipeline{..} = concatMap commandHeredocs commands
-
-commandHeredocs :: Command -> [Redir]
-commandHeredocs (Command _ rs) = filter isHeredoc rs
-    where
-        isHeredoc (Heredoc {}) = True
-        isHeredoc _ = False
-
 -- | A statement terminator.
 data ListTerm
     = Sequential    -- ^ @;@
@@ -317,6 +309,11 @@ instance Pretty AndOr where
     pretty (And p a) = pretty p <+> "&&" <+> pretty a
     pretty (Or p a)  = pretty p <+> "||" <+> pretty a
 
+andOrHeredocs :: AndOr -> [Redir]
+andOrHeredocs (Last p)  = pipelineHeredocs p
+andOrHeredocs (And p a) = pipelineHeredocs p ++ andOrHeredocs a
+andOrHeredocs (Or p a)  = pipelineHeredocs p ++ andOrHeredocs a
+
 -- | A (possibly timed or inverted) pipeline, linked with @|@ or @|&@.
 data Pipeline = Pipeline
     { -- | 'True' if the pipeline is timed with @time@.
@@ -337,6 +334,9 @@ instance Pretty Pipeline where
         (if timedPosix then "-p"   else empty) <+>
         (if inverted   then "!"    else empty) <+>
         hcat (punctuate " | " (map pretty commands))
+
+pipelineHeredocs :: Pipeline -> [Redir]
+pipelineHeredocs Pipeline{..} = concatMap commandHeredocs commands
 
 -- | An assignment.
 data Assign = Assign Parameter AssignOp RValue
