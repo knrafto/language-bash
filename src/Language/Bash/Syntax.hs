@@ -188,8 +188,7 @@ instance Pretty Redir where
         pretty heredocOp <>
         text (if heredocDelimQuoted
               then "'" ++ heredocDelim ++ "'"
-              else heredocDelim) <> "\n" <>
-        pretty hereDocument <> text heredocDelim <> "\n"
+              else heredocDelim)
 
     prettyList = foldr f empty
       where
@@ -253,13 +252,39 @@ data Statement = Statement AndOr ListTerm
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Statement where
-    pretty (Statement l Sequential)   = pretty l <> ";"
-    pretty (Statement l Asynchronous) = pretty l <+> "&"
+    pretty (Statement l Sequential)   = pretty l <>  ";" <> prettyHeredocs l
+    pretty (Statement l Asynchronous) = pretty l <+> "&" <> prettyHeredocs l
 
     prettyList = foldr f empty
       where
         f a@(Statement _ Sequential)   b = pretty a $+$ b
         f a@(Statement _ Asynchronous) b = pretty a <+> b
+
+prettyHeredocs :: AndOr -> Doc
+prettyHeredocs a = case andOrHeredocs a of
+    [] -> empty
+    rs -> mconcat (map prettyHeredoc rs)
+    where
+        prettyHeredoc Heredoc{..} = pretty (prependNewline hereDocument) <> text heredocDelim
+        prettyHeredoc _ = empty
+
+        prependNewline []               = [Char '\n']
+        prependNewline xs@(Char '\n':_) = xs
+        prependNewline xs               = Char '\n' : xs
+
+andOrHeredocs :: AndOr -> [Redir]
+andOrHeredocs (Last p)  = pipelineHeredocs p
+andOrHeredocs (And p a) = pipelineHeredocs p ++ andOrHeredocs a
+andOrHeredocs (Or p a)  = pipelineHeredocs p ++ andOrHeredocs a
+
+pipelineHeredocs :: Pipeline -> [Redir]
+pipelineHeredocs Pipeline{..} = concatMap commandHeredocs commands
+
+commandHeredocs :: Command -> [Redir]
+commandHeredocs (Command _ rs) = filter isHeredoc rs
+    where
+        isHeredoc (Heredoc {}) = True
+        isHeredoc _ = False
 
 -- | A statement terminator.
 data ListTerm
