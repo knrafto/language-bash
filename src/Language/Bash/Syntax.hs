@@ -215,8 +215,7 @@ instance Pretty Redir where
 
     prettyList = foldr f empty
       where
-        f a@Redir{}   b = pretty a <+> b
-        f a@Heredoc{} b = pretty a <> b
+        f a b = pretty a <+> b
 
 -- | A redirection file descriptor.
 data IODesc
@@ -275,8 +274,8 @@ data Statement = Statement AndOr ListTerm
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Statement where
-    pretty (Statement l Sequential)   = pretty l <>  ";" <> prettyHeredocs (andOrHeredocs l)
-    pretty (Statement l Asynchronous) = pretty l <+> "&" <> prettyHeredocs (andOrHeredocs l)
+    pretty (Statement l Sequential)   = pretty (NoHeredoc l) <>  ";" <> prettyHeredocs (andOrHeredocs l)
+    pretty (Statement l Asynchronous) = pretty (NoHeredoc l) <+> "&" <> prettyHeredocs (andOrHeredocs l)
 
     prettyList = foldr f empty
       where
