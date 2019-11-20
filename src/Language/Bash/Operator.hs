@@ -8,9 +8,7 @@ module Language.Bash.Operator
 
 import Control.Applicative
 import Data.Foldable
-import Text.PrettyPrint
-
-import Language.Bash.Pretty
+import Data.Text.Prettyprint.Doc (Doc, pretty)
 
 -- | String operators.
 class Eq a => Operator a where
@@ -25,5 +23,5 @@ selectOperator :: (Alternative f, Operator a) => (String -> f c) -> f a
 selectOperator p = select p operatorTable
 
 -- | Render an operator.
-prettyOperator :: Operator a => a -> Doc
+prettyOperator :: Operator a => a -> Doc ann
 prettyOperator = pretty . flip lookup operatorTable

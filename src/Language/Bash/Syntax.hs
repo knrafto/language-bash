@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
 -- | Shell script types.
 module Language.Bash.Syntax
     (
@@ -23,34 +23,79 @@ module Language.Bash.Syntax
     , Assign(..)
     , AssignOp(..)
     , RValue(..)
+    --
+    , BashDoc(..)
+    , prettyHeredocs
     ) where
 
-import Prelude hiding ((<>), Word)
+import Prelude hiding (Word)
 
 import Data.Data        (Data)
+import Data.List        (intersperse)
 import Data.Typeable    (Typeable)
 import GHC.Generics     (Generic)
-import Text.PrettyPrint
+import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, layoutCompact, punctuate, vcat)
+import Data.Text.Prettyprint.Doc.Internal (Doc(Empty))
 
 import Language.Bash.Cond     (CondExpr)
 import Language.Bash.Operator
 import Language.Bash.Pretty
 import Language.Bash.Word
 
+data BashDoc ann = BashDoc (Doc ann) (Doc ann) [Redir]
+
+instance Eq ann => Eq (BashDoc ann) where
+    BashDoc h1 t1 hds1 == BashDoc h2 t2 hds2 = layoutCompact h1 == layoutCompact h2 && layoutCompact t1 == layoutCompact t2 && hds1 == hds2
+
+instance Show (BashDoc ann) where
+    show (BashDoc h t hds) = "BashDoc " ++ show (show h) ++ " " ++ show (show t) ++ " " ++ show hds
+
+instance Monoid (BashDoc ann) where
+    mempty = BashDoc mempty mempty []
+
+instance Semigroup (BashDoc ann) where
+    BashDoc Empty Empty [] <> y = y
+    x <> BashDoc Empty Empty [] = x
+    BashDoc h1 t1 []   <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 <++> t2) hds2
+    BashDoc h1 t1 hds1 <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 $++$ prettyHeredocs hds1 $++$ t2) hds2
+
+docOp :: Doc ann -> BashDoc ann
+docOp xs = BashDoc xs mempty []
+
+prettyBashDoc :: BashDoc ann -> Doc ann
+prettyBashDoc (BashDoc h t hds) = h <++> t $++$ prettyHeredocs hds
+
+-- | A utility class for pretty printing without heredocs
+class ToBashDoc a where
+    toBashDoc :: a -> BashDoc ann
+
+prettyHeredocs :: [Redir] -> Doc ann
+prettyHeredocs [] = mempty
+prettyHeredocs rs = mconcat $ intersperse hardline $ map prettyHeredoc rs
+    where
+        prettyHeredoc Heredoc{..} = pretty hereDocument <> pretty heredocDelim
+        prettyHeredoc _ = mempty
+
 -- | Indent by 4 columns.
-indent :: Pretty a => a -> Doc
-indent = nest 4 . pretty
+indent' :: Doc ann -> Doc ann
+indent' = indent 4
 
 -- | Render a @do...done@ block.
-doDone :: Pretty a => Doc -> a -> Doc
-doDone header body = header <+> "do" $+$ indent body $+$ "done"
+doDone :: Doc ann -> Doc ann -> Doc ann
+doDone header body = header <+> "do" $+$ indent' body $+$ "done"
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Command where
-    pretty (Command c rs) = pretty c <+> pretty rs
+    pretty = prettyBashDoc . toBashDoc
+
+instance ToBashDoc Command where
+    toBashDoc (Command c rs) = BashDoc mempty (pretty c <++> pretty rs) (filter isHeredoc rs)
+        where
+            isHeredoc Heredoc{..} = True
+            isHeredoc _ = False
 
 -- | A Bash command.
 data ShellCommand
@@ -91,36 +136,36 @@ data ShellCommand
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty ShellCommand where
-    pretty (SimpleCommand as ws)  = pretty as <+> pretty ws
-    pretty (AssignBuiltin w args) = pretty w <+> pretty args
+    pretty (SimpleCommand as ws)  = pretty as <++> pretty ws
+    pretty (AssignBuiltin w args) = pretty w <++> pretty args
     pretty (FunctionDef name l) =
-        text name <+> "()" $+$ pretty (Group l)
+        pretty name <+> "()" $+$ pretty (Group l)
     pretty (Coproc name c) =
-        "coproc" <+> text name <+> pretty c
+        "coproc" <+> pretty name <+> pretty c
     pretty (Subshell l) =
         "(" <+> pretty l <+> ")"
     pretty (Group l) =
-        "{" $+$ indent l $+$ "}"
+        "{" $+$ indent' (pretty l) $+$ "}"
     pretty (Arith s) =
-        "((" <> text s <> "))"
+        "((" <> pretty s <> "))"
     pretty (Cond e) =
         "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
-        doDone ("for" <+> pretty w <+> pretty ws <> ";") l
+        doDone ("for" <+> pretty w <+> pretty ws <> ";") (pretty l)
     pretty (ArithFor s l) =
-        doDone ("for" <+> "((" <> text s <> "))") l
+        doDone ("for" <+> "((" <> pretty s <> "))") (pretty l)
     pretty (Select w ws l) =
-        doDone ("select" <+> pretty w <+> pretty ws <> ";") l
+        doDone ("select" <+> pretty w <+> pretty ws <> ";") (pretty l)
     pretty (Case w cs) =
-        "case" <+> pretty w <+> "in" $+$ (vcat $ map indent cs) $+$ "esac"
+        "case" <+> pretty w <+> "in" $+$ (vcat $ map (indent' . pretty) cs) $+$ "esac"
     pretty (If p t f) =
-        "if" <+> pretty p <+> "then" $+$ indent t $+$
-        pretty (fmap (\l -> "else" $+$ indent l) f) $+$
+        "if" <+> pretty p <+> "then" $+$ indent' (pretty t) $+$
+        (maybe mempty (\l -> "else" $+$ indent' (pretty l)) f) $+$
         "fi"
     pretty (Until p l) =
-        doDone ("until" <+> pretty p) l
+        doDone ("until" <+> pretty p) (pretty l)
     pretty (While p l) =
-        doDone ("while" <+> pretty p) l
+        doDone ("while" <+> pretty p) (pretty l)
 
 -- | A word list or @\"$\@\"@.
 data WordList
@@ -129,7 +174,7 @@ data WordList
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty WordList where
-    pretty Args          = empty
+    pretty Args          = mempty
     pretty (WordList ws) = "in" <+> pretty ws
 
 -- | A single case clause.
@@ -139,8 +184,8 @@ data CaseClause = CaseClause [Word] List CaseTerm
 instance Pretty CaseClause where
     pretty (CaseClause ps l term) =
         hcat (punctuate " | " (map pretty ps)) <> ")" $+$
-        indent l $+$
-        (indent $ pretty term)
+        indent' (pretty l) $+$
+        (indent' $ pretty term)
 
 -- | A case clause terminator.
 data CaseTerm
@@ -186,15 +231,11 @@ instance Pretty Redir where
         pretty redirDesc <> pretty redirOp <> pretty redirTarget
     pretty Heredoc{..} =
         pretty heredocOp <>
-        text (if heredocDelimQuoted
+        pretty (if heredocDelimQuoted
               then "'" ++ heredocDelim ++ "'"
-              else heredocDelim) <> "\n" <>
-        pretty hereDocument <> text heredocDelim <> "\n"
+              else heredocDelim)
 
-    prettyList = foldr f empty
-      where
-        f a@Redir{}   b = pretty a <+> b
-        f a@Heredoc{} b = pretty a <> b
+    prettyList = hsep . map pretty
 
 -- | A redirection file descriptor.
 data IODesc
@@ -205,8 +246,8 @@ data IODesc
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty IODesc where
-    pretty (IONumber n) = int n
-    pretty (IOVar n)    = "{" <> text n <> "}"
+    pretty (IONumber n) = pretty n
+    pretty (IOVar n)    = "{" <> pretty n <> "}"
 
 -- | A redirection operator.
 data RedirOp
@@ -253,13 +294,16 @@ data Statement = Statement AndOr ListTerm
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Statement where
-    pretty (Statement l Sequential)   = pretty l <> ";"
-    pretty (Statement l Asynchronous) = pretty l <+> "&"
+    pretty = prettyBashDoc . toBashDoc
 
-    prettyList = foldr f empty
+    prettyList = foldr f mempty
       where
-        f a@(Statement _ Sequential)   b = pretty a $+$ b
-        f a@(Statement _ Asynchronous) b = pretty a <+> b
+        f a@(Statement _ Sequential)   b = pretty a $++$ b
+        f a@(Statement _ Asynchronous) b = pretty a <++> b
+
+instance ToBashDoc Statement where
+    toBashDoc (Statement l Sequential)   = toBashDoc l <> docOp ";"
+    toBashDoc (Statement l Asynchronous) = toBashDoc l <> docOp "&"
 
 -- | A statement terminator.
 data ListTerm
@@ -288,9 +332,12 @@ data AndOr
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty AndOr where
-    pretty (Last p)  = pretty p
-    pretty (And p a) = pretty p <+> "&&" <+> pretty a
-    pretty (Or p a)  = pretty p <+> "||" <+> pretty a
+    pretty = prettyBashDoc . toBashDoc
+
+instance ToBashDoc AndOr where
+    toBashDoc (Last p)  = toBashDoc p
+    toBashDoc (And p a) = toBashDoc p <> docOp " &&" <> toBashDoc a
+    toBashDoc (Or p a)  = toBashDoc p <> docOp " ||" <> toBashDoc a
 
 -- | A (possibly timed or inverted) pipeline, linked with @|@ or @|&@.
 data Pipeline = Pipeline
@@ -307,11 +354,16 @@ data Pipeline = Pipeline
     } deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Pipeline where
-    pretty Pipeline{..} =
-        (if timed      then "time" else empty) <+>
-        (if timedPosix then "-p"   else empty) <+>
-        (if inverted   then "!"    else empty) <+>
-        hcat (punctuate " | " (map pretty commands))
+    pretty = prettyBashDoc . toBashDoc
+
+instance ToBashDoc Pipeline where
+    toBashDoc Pipeline{..} = let
+        timed'      = if timed      then "time" else mempty
+        timedPosix' = if timedPosix then "-p"   else mempty
+        inverted'   = if inverted   then "!"    else mempty
+        space       = if timed || timedPosix || inverted then " " else mempty
+        prefix = BashDoc mempty (timed' <++> timedPosix' <++> inverted' <> space) []
+        in prefix <> mconcat (intersperse (docOp " |") (map toBashDoc commands))
 
 -- | An assignment.
 data Assign = Assign Parameter AssignOp RValue
@@ -319,6 +371,8 @@ data Assign = Assign Parameter AssignOp RValue
 
 instance Pretty Assign where
     pretty (Assign lhs op rhs) = pretty lhs <> pretty op <> pretty rhs
+
+    prettyList = hsep . map pretty
 
 -- | An assignment operator.
 data AssignOp

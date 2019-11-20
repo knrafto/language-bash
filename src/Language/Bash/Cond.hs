@@ -22,10 +22,9 @@ import Data.Typeable          (Typeable)
 import GHC.Generics           (Generic)
 import Text.Parsec            hiding ((<|>), token)
 import Text.Parsec.Expr       hiding (Operator)
-import Text.PrettyPrint       hiding (parens)
+import Data.Text.Prettyprint.Doc (Pretty(..), (<+>))
 
 import Language.Bash.Operator
-import Language.Bash.Pretty
 
 -- | Bash conditional expressions.
 data CondExpr a

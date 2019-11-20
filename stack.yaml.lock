@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: prettyprinter-1.4.0@sha256:3b02d245d5f7ee0caf956471260b254d404bd7675e41f8c38430c951db8812c7,5375
+    pantry-tree:
+      size: 2105
+      sha256: 2b4a7f834e5d6c17cec1dc13cd2292c2a976277d6c94b083296f8d7a2348c14f
+  original:
+    hackage: prettyprinter-1.4.0@sha256:3b02d245d5f7ee0caf956471260b254d404bd7675e41f8c38430c951db8812c7,5375
 snapshots:
 - completed:
     size: 525662

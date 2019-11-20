@@ -1,38 +1,31 @@
 -- | Pretty-printing of Bash scripts. This tries to stay close to the format
 -- used by the Bash builtin @declare -f@.
-module Language.Bash.Pretty
-    ( Pretty(..)
-    , prettyText
-    ) where
+module Language.Bash.Pretty where
 
-import Text.PrettyPrint
-
--- | A class of types which may be pretty-printed.
-class Pretty a where
-    -- | Pretty-print to a 'Doc'.
-    pretty     :: a -> Doc
-
-    -- | Pretty-print a list. By default, this separates each element with
-    -- a space using 'hsep'.
-    prettyList :: [a] -> Doc
-    prettyList = hsep . map pretty
-
-instance Pretty a => Pretty [a] where
-    pretty = prettyList
-
-instance Pretty Doc where
-    pretty = id
-
-instance Pretty Char where
-    pretty c   = text [c]
-    prettyList = text
-
-instance Pretty a => Pretty (Maybe a) where
-    pretty = maybe empty pretty
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Internal
+import Data.Text.Prettyprint.Doc.Render.String
 
 instance (Pretty a, Pretty b) => Pretty (Either a b) where
     pretty = either pretty pretty
 
+($+$) :: Doc ann -> Doc ann -> Doc ann
+x $+$ y = x <> line <> y
+
+($++$) :: Doc ann -> Doc ann -> Doc ann
+Empty $++$ y     = y
+x     $++$ Empty = x
+x     $++$ y     = x <> line <> y
+
+(<++>) :: Doc ann -> Doc ann -> Doc ann
+Empty <++> y     = y
+x     <++> Empty = x
+x     <++> y     = x <+> y
+
+isEmpty :: Doc ann -> Bool
+isEmpty Empty = True
+isEmpty _ = False
+
 -- | Pretty-print to a 'String'.
 prettyText :: Pretty a => a -> String
-prettyText = render . pretty
+prettyText = renderString . layoutPretty defaultLayoutOptions . pretty

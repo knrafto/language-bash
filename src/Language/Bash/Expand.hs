@@ -7,7 +7,7 @@ module Language.Bash.Expand
     , splitWord
     ) where
 
-import Prelude hiding ((<>), Word)
+import Prelude hiding (Word)
 
 import Control.Applicative
 import Control.Monad
@@ -15,7 +15,7 @@ import Data.Char
 import Text.Parsec.Combinator hiding (optional, manyTill)
 import Text.Parsec.Prim       hiding ((<|>), many, token)
 import Text.Parsec.String     ()
-import Text.PrettyPrint       hiding (char)
+import Data.Text.Prettyprint.Doc (Pretty(..))
 
 import Language.Bash.Pretty
 import Language.Bash.Word     hiding (prefix)
@@ -180,10 +180,10 @@ data TildePrefix
 
 instance Pretty TildePrefix where
     pretty Home         = "~"
-    pretty (UserHome s) = "~" <> text s
+    pretty (UserHome s) = "~" <> pretty s
     pretty PWD          = "~+"
     pretty OldPWD       = "~-"
-    pretty (Dirs n)     = "~" <> int n
+    pretty (Dirs n)     = "~" <> pretty n
 
 -- | Strip the tilde prefix of a word, if any.
 tildePrefix :: Word -> Maybe (TildePrefix, Word)
