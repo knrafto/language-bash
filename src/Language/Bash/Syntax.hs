@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
 -- | Shell script types.
 module Language.Bash.Syntax
     (
