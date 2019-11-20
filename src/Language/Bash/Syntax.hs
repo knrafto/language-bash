@@ -45,12 +45,8 @@ prettyHeredocs :: [Redir] -> Doc
 prettyHeredocs [] = empty
 prettyHeredocs rs = mconcat (map prettyHeredoc rs)
     where
-        prettyHeredoc Heredoc{..} = pretty (prependNewline hereDocument) <> text heredocDelim
+        prettyHeredoc Heredoc{..} = pretty hereDocument <> text heredocDelim
         prettyHeredoc _ = empty
-
-        prependNewline []               = [Char '\n']
-        prependNewline xs@(Char '\n':_) = xs
-        prependNewline xs               = Char '\n' : xs
 
 -- | Indent by 4 columns.
 indent :: Pretty a => a -> Doc
