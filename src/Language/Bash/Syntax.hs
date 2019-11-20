@@ -214,10 +214,6 @@ instance Pretty Redir where
               then "'" ++ heredocDelim ++ "'"
               else heredocDelim)
 
-    prettyList = foldr f empty
-      where
-        f a b = pretty a <+> b
-
 -- | A redirection file descriptor.
 data IODesc
       -- | A file descriptor number.
