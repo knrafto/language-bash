@@ -23,11 +23,17 @@ module Language.Bash.Syntax
     , Assign(..)
     , AssignOp(..)
     , RValue(..)
+    --
+    , BashDoc(..)
+    , toBashDoc
     ) where
 
 import Prelude hiding ((<>), Word)
+import qualified Prelude
 
 import Data.Data        (Data)
+import Data.List (intersperse)
+import Data.String (IsString(..))
 import Data.Typeable    (Typeable)
 import GHC.Generics     (Generic)
 import Text.PrettyPrint
@@ -37,9 +43,32 @@ import Language.Bash.Operator
 import Language.Bash.Pretty
 import Language.Bash.Word
 
+data BashDoc = BashDoc Doc Doc [Redir]
+
+instance Show BashDoc where
+    show (BashDoc line rest hds) = "BashDoc " ++ show (show line) ++ " " ++ show (show rest) ++ " " ++ show hds
+
+instance IsString BashDoc where
+    fromString xs = let
+        (line:rest) = lines xs
+        in BashDoc (text line) (vcat $ map text rest) []
+
+instance Monoid BashDoc where
+    mempty = BashDoc empty empty []
+
+instance Semigroup BashDoc where
+    BashDoc line1 rest1 hds1 <> BashDoc line2 rest2 hds2 = case (rest1 == empty, rest2 == empty) of
+        (False, False) -> BashDoc line1 (rest1 <+> line2 $+$ prettyHeredocs hds1 $+$ rest2) hds2
+        (False, True ) -> BashDoc line1 (rest1 <+> line2                                  ) (hds1 ++ hds2)
+        (True , False) -> BashDoc (line1 <+> line2) (prettyHeredocs hds1 $+$ rest2) hds2
+        (True , True ) -> BashDoc (line1 <+> line2) empty (hds1 ++ hds2)
+
+instance Pretty BashDoc where
+    pretty (BashDoc line rest hds) = line $+$ rest $+$ prettyHeredocs hds
+
 -- | A utility class for pretty printing without heredocs
-class PrettyNoHeredoc a where
-    prettyNoHeredoc :: a -> Doc
+class ToBashDoc a where
+    toBashDoc :: a -> BashDoc
 
 prettyHeredocs :: [Redir] -> Doc
 prettyHeredocs [] = empty
@@ -53,24 +82,21 @@ indent :: Pretty a => a -> Doc
 indent = nest 4 . pretty
 
 -- | Render a @do...done@ block.
-doDone :: Pretty a => Doc -> a -> Doc
-doDone header body = header <+> "do" $+$ indent body $+$ "done"
+doDone :: Pretty a => Doc -> a -> BashDoc
+doDone header body = BashDoc header ("do" $+$ indent body $+$ "done") []
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Command where
-    pretty c = prettyNoHeredoc c <> prettyHeredocs (commandHeredocs c)
+    pretty = pretty . toBashDoc
 
-instance PrettyNoHeredoc Command where
-    prettyNoHeredoc (Command c rs) = pretty c <+> pretty rs
-
-commandHeredocs :: Command -> [Redir]
-commandHeredocs (Command _ rs) = filter isHeredoc rs
-    where
-        isHeredoc (Heredoc {}) = True
-        isHeredoc _ = False
+instance ToBashDoc Command where
+    toBashDoc (Command c rs) = toBashDoc c Prelude.<> BashDoc (pretty rs) empty (filter isHeredoc rs)
+        where
+            isHeredoc (Heredoc {}) = True
+            isHeredoc _ = False
 
 -- | A Bash command.
 data ShellCommand
@@ -111,36 +137,24 @@ data ShellCommand
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty ShellCommand where
-    pretty (SimpleCommand as ws)  = pretty as <+> pretty ws
-    pretty (AssignBuiltin w args) = pretty w <+> pretty args
-    pretty (FunctionDef name l) =
-        text name <+> "()" $+$ pretty (Group l)
-    pretty (Coproc name c) =
-        "coproc" <+> text name <+> pretty c
-    pretty (Subshell l) =
-        "(" <+> pretty l <+> ")"
-    pretty (Group l) =
-        "{" $+$ indent l $+$ "}"
-    pretty (Arith s) =
-        "((" <> text s <> "))"
-    pretty (Cond e) =
-        "[[" <+> pretty e <+> "]]"
-    pretty (For w ws l) =
-        doDone ("for" <+> pretty w <+> pretty ws <> ";") l
-    pretty (ArithFor s l) =
-        doDone ("for" <+> "((" <> text s <> "))") l
-    pretty (Select w ws l) =
-        doDone ("select" <+> pretty w <+> pretty ws <> ";") l
-    pretty (Case w cs) =
-        "case" <+> pretty w <+> "in" $+$ (vcat $ map indent cs) $+$ "esac"
-    pretty (If p t f) =
-        "if" <+> pretty p <+> "then" $+$ indent t $+$
-        pretty (fmap (\l -> "else" $+$ indent l) f) $+$
-        "fi"
-    pretty (Until p l) =
-        doDone ("until" <+> pretty p) l
-    pretty (While p l) =
-        doDone ("while" <+> pretty p) l
+    pretty = pretty . toBashDoc
+
+instance ToBashDoc ShellCommand where
+    toBashDoc (SimpleCommand as ws)  = BashDoc (pretty as <+> pretty ws) empty []
+    toBashDoc (AssignBuiltin w args) = BashDoc (pretty w <+> pretty args) empty []
+    toBashDoc (FunctionDef name l)   = BashDoc (text name <+> "()") (pretty (Group l)) []
+    toBashDoc (Coproc name c)        = BashDoc ("coproc" <+> text name) empty [] Prelude.<> toBashDoc c
+    toBashDoc (Subshell l)           = BashDoc "( " empty [] Prelude.<> toBashDoc l Prelude.<> BashDoc " )" empty []
+    toBashDoc (Group l)              = BashDoc "{" (indent l $+$ "}") []
+    toBashDoc (Arith s)              = BashDoc ("((" <> text s <> "))") empty []
+    toBashDoc (Cond e)               = BashDoc ("[[" <+> pretty e <+> "]]") empty []
+    toBashDoc (For w ws l)           = doDone ("for" <+> pretty w <+> pretty ws <> ";") l
+    toBashDoc (ArithFor s l)         = doDone ("for" <+> "((" <> text s <> "))") l
+    toBashDoc (Select w ws l)        = doDone ("select" <+> pretty w <+> pretty ws <> ";") l
+    toBashDoc (Case w cs)            = BashDoc ("case" <+> pretty w <+> "in") ((vcat $ map indent cs) $+$ "esac") []
+    toBashDoc (If p t f)             = BashDoc ("if" <+> pretty p <+> "then") (indent t $+$ pretty (fmap (\l -> "else" $+$ indent l) f) $+$ "fi") []
+    toBashDoc (Until p l)            = doDone ("until" <+> pretty p) l
+    toBashDoc (While p l)            = doDone ("while" <+> pretty p) l
 
 -- | A word list or @\"$\@\"@.
 data WordList
@@ -260,20 +274,21 @@ newtype List = List [Statement]
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty List where
-    pretty (List as) = pretty as
+    pretty = pretty . toBashDoc
+
+instance ToBashDoc List where
+    toBashDoc (List as) = mconcat $ map toBashDoc as
 
 -- | A single statement in a list.
 data Statement = Statement AndOr ListTerm
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Statement where
-    pretty (Statement l Sequential)   = prettyNoHeredoc l <>  ";" <> prettyHeredocs (andOrHeredocs l)
-    pretty (Statement l Asynchronous) = prettyNoHeredoc l <+> "&" <> prettyHeredocs (andOrHeredocs l)
+    pretty = pretty . toBashDoc
 
-    prettyList = foldr f empty
-      where
-        f a@(Statement _ Sequential)   b = pretty a $+$ b
-        f a@(Statement _ Asynchronous) b = pretty a <+> b
+instance ToBashDoc Statement where
+    toBashDoc (Statement l Sequential)   = toBashDoc l Prelude.<> ";"
+    toBashDoc (Statement l Asynchronous) = toBashDoc l Prelude.<> " &"
 
 -- | A statement terminator.
 data ListTerm
@@ -302,17 +317,12 @@ data AndOr
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty AndOr where
-    pretty a = prettyNoHeredoc a <> prettyHeredocs (andOrHeredocs a)
+    pretty = pretty . toBashDoc
 
-instance PrettyNoHeredoc AndOr where
-    prettyNoHeredoc (Last p)  = prettyNoHeredoc p
-    prettyNoHeredoc (And p a) = prettyNoHeredoc p <+> "&&" <+> prettyNoHeredoc a
-    prettyNoHeredoc (Or p a)  = prettyNoHeredoc p <+> "||" <+> prettyNoHeredoc a
-
-andOrHeredocs :: AndOr -> [Redir]
-andOrHeredocs (Last p)  = pipelineHeredocs p
-andOrHeredocs (And p a) = pipelineHeredocs p ++ andOrHeredocs a
-andOrHeredocs (Or p a)  = pipelineHeredocs p ++ andOrHeredocs a
+instance ToBashDoc AndOr where
+    toBashDoc (Last p)  = toBashDoc p
+    toBashDoc (And p a) = toBashDoc p Prelude.<> " && " Prelude.<> toBashDoc a
+    toBashDoc (Or p a)  = toBashDoc p Prelude.<> " || " Prelude.<> toBashDoc a
 
 -- | A (possibly timed or inverted) pipeline, linked with @|@ or @|&@.
 data Pipeline = Pipeline
@@ -329,17 +339,15 @@ data Pipeline = Pipeline
     } deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Pipeline where
-    pretty p = prettyNoHeredoc p <> prettyHeredocs (pipelineHeredocs p)
+    pretty = pretty . toBashDoc
 
-instance PrettyNoHeredoc Pipeline where
-    prettyNoHeredoc (Pipeline{..}) =
-        (if timed      then "time" else empty) <+>
-        (if timedPosix then "-p"   else empty) <+>
-        (if inverted   then "!"    else empty) <+>
-        hcat (punctuate " | " (map prettyNoHeredoc commands))
-
-pipelineHeredocs :: Pipeline -> [Redir]
-pipelineHeredocs Pipeline{..} = concatMap commandHeredocs commands
+instance ToBashDoc Pipeline where
+    toBashDoc (Pipeline{..}) = let
+        timed'      = if timed      then "time" else empty
+        timedPosix' = if timedPosix then "-p"   else empty
+        inverted'   = if inverted   then "!"    else empty
+        prefix = BashDoc (timed' <+> timedPosix' <+> inverted') empty []
+        in prefix Prelude.<> mconcat (intersperse "|" $ map toBashDoc commands)
 
 -- | An assignment.
 data Assign = Assign Parameter AssignOp RValue
