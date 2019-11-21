@@ -100,6 +100,17 @@ unittests = testGroup "Unit tests"
                   heredocDelim = "EOF",
                   heredocDelimQuoted = True,
                   hereDocument = stringToWord "asd\\`\n"}])
+  , tp "cat <<EOF1 <<EOF2\nt1\nEOF1\nt2\nEOF2" $ wrapCommand
+        (Command
+        (SimpleCommand [] [stringToWord "cat"])
+        [Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF1",
+                  heredocDelimQuoted = False,
+                  hereDocument = stringToWord "t1\n"}
+        ,Heredoc {heredocOp = Here,
+                  heredocDelim = "EOF2",
+                  heredocDelimQuoted = False,
+                  hereDocument = stringToWord "t2\n"}])
   , tp "echo $((2 + 2))" $ wrapCommand
        (Command
         (SimpleCommand [] [stringToWord "echo", [ArithSubst "2 + 2"]])

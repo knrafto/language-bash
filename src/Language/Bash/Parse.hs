@@ -58,13 +58,13 @@ heredoc strip end = "here document" ?: do
     duck = do
         u <- getState
         case postHeredoc u of
-            Nothing -> () <$ line <* optional (char '\n')
+            Nothing -> () <$ line
             Just s  -> () <$ setParserState s
         h <- unlines <$> heredocLines
         s <- getParserState
         return (h, s)
 
-    line = many (satisfy (/= '\n'))
+    line = many (satisfy (/= '\n')) <* optional (char '\n')
 
     heredocLines = [] <$ eof
                <|> nextLine
@@ -73,7 +73,7 @@ heredoc strip end = "here document" ?: do
         l <- process <$> line
         if l == end
             then return []
-            else (l :) <$ optional (char '\n') <*> heredocLines
+            else (l :) <$> heredocLines
 
 -- | Parse a newline, skipping any here documents.
 newline :: Parser String
