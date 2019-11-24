@@ -1,0 +1,4 @@
+cat <<EOF
+Hello world!
+EOF
+>/dev/null;

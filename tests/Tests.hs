@@ -2,10 +2,13 @@ module Main (main) where
 
 import           Control.Applicative ((<$>))
 import           Control.Monad
+import           System.Directory (listDirectory)
+import           System.FilePath ((</>), (-<.>), isExtensionOf)
 import           System.Process           (readProcess)
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic  as QCM
 import           Test.Tasty
+import           Test.Tasty.Golden
 import           Test.Tasty.QuickCheck
 import           Test.Tasty.HUnit
 import           Test.Tasty.ExpectedFailure (expectFail)
@@ -14,6 +17,7 @@ import           Text.Parsec.Error (ParseError)
 
 
 import qualified Language.Bash.Parse      as Parse
+import           Language.Bash.Pretty     (prettyText)
 import           Language.Bash.Syntax
 import qualified Language.Bash.Cond       as Cond
 import           Language.Bash.Word
@@ -57,6 +61,23 @@ prop_expandsLikeBash = monadicIO $ forAllM braceExpr $ \str -> do
 
 properties :: TestTree
 properties = testGroup "Properties" [testProperty "brace expansion" prop_expandsLikeBash]
+
+discoverPretty :: FilePath -> IO TestTree
+discoverPretty fp = do
+    fs <- listDirectory fp
+    let shFs = filter (isExtensionOf "sh") fs
+    return $ testGroup "Pretty printing" $ map (\shFn -> testPretty shFn (fp </> shFn)) shFs
+
+testPretty :: TestName -> FilePath -> TestTree
+testPretty name shFp = do
+    let outFp    = shFp -<.> "out"
+        goldenFp = shFp -<.> "golden"
+    goldenVsFileDiff name (\ref new -> ["diff", "-u", ref, new]) goldenFp outFp $ do
+        cnt <- readFile shFp
+        parsed <- case Parse.parse shFp cnt of
+            Left err -> assertFailure $ show err
+            Right parsed -> return parsed
+        writeFile outFp $ prettyText parsed
 
 testMatches :: (Eq a, Show a) => TestName -> Either Text.Parsec.Error.ParseError a -> a -> TestTree
 testMatches name parsed expected = testCase name $
@@ -161,8 +182,12 @@ failingtests :: TestTree
 failingtests = testGroup "Failing tests" (map expectFail
   [])
 
-tests :: TestTree
-tests = testGroup "Tests" [properties, unittests, failingtests]
-
 main :: IO ()
-main = defaultMain tests
+main = do
+    pptests <- discoverPretty "tests/pretty"
+    defaultMain $ testGroup "Tests"
+        [ properties
+        , unittests
+        , failingtests
+        , pptests
+        ]

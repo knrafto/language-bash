@@ -56,11 +56,14 @@ test-suite tests
 
   build-depends:
     base,
+    directory,
+    filepath,
     language-bash,
     parsec,
     process,
     QuickCheck,
     tasty,
+    tasty-golden,
     tasty-quickcheck,
     tasty-hunit,
     tasty-expected-failure

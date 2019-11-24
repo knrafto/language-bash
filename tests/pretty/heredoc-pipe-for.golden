@@ -1,0 +1,6 @@
+cat <<EOF1 |
+Here doc 1
+EOF1
+for x in true; do
+    true;
+done;
