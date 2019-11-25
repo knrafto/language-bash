@@ -93,6 +93,15 @@ unittests = testGroup "Unit tests"
                   heredocDelimQuoted = False,
                   hereDocument = [Char 'a',Char 's',Char 'd',Escape '`',
                                   Char '\n']}])
+  , tp "cat <<EOF\nfoo\nEOF\n  cat" $ wrapCommands
+      [ Command
+          (SimpleCommand [] [stringToWord "cat"])
+          [Heredoc {heredocOp = Here,
+                    heredocDelim = "EOF",
+                    heredocDelimQuoted = False,
+                    hereDocument = [Char 'f',Char 'o',Char 'o',Char '\n']}]
+      , Command (SimpleCommand [] [stringToWord "cat"]) []
+      ]
   , tp "cat <<\"EOF\"\nasd\\`\nEOF" $ wrapCommand
        (Command
         (SimpleCommand [] [stringToWord "cat"])

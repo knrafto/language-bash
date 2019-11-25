@@ -84,6 +84,7 @@ newline = "newline" ?: do
         Nothing -> return ()
         Just s  -> () <$ setParserState s
     setState $ U Nothing
+    skipSpace
     return "\n"
 
 -- | Parse a list terminator.
