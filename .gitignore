@@ -4,3 +4,4 @@ cabal.sandbox.config
 *.o
 *.hi
 .stack-work
+tests/pretty/*.out
