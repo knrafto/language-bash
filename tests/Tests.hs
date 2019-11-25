@@ -77,7 +77,7 @@ testPretty name shFp = do
         parsed <- case Parse.parse shFp cnt of
             Left err -> assertFailure $ show err
             Right parsed -> return parsed
-        writeFile outFp $ prettyText parsed
+        writeFile outFp $ prettyText parsed ++ "\n"
 
 testMatches :: (Eq a, Show a) => TestName -> Either Text.Parsec.Error.ParseError a -> a -> TestTree
 testMatches name parsed expected = testCase name $
