@@ -23,7 +23,7 @@ module Language.Bash.Syntax
     , Assign(..)
     , AssignOp(..)
     , RValue(..)
-    --
+      -- * Internal
     , BashDoc(..)
     , prettyHeredocs
     ) where
@@ -42,7 +42,27 @@ import Language.Bash.Operator
 import Language.Bash.Pretty
 import Language.Bash.Word
 
-data BashDoc ann = BashDoc (Doc ann) (Doc ann) [Redir]
+-- | The BashDoc monoid is used for building Statements, AndOr or Pipelines.
+-- Consider the following situation: We have the following command
+--
+-- > cat <<EOF
+-- > some here doc
+-- > EOF
+--
+-- and we want to pipe its output to another arbitrary command @cmd@.
+-- We want this pipeline to look like this:
+--
+-- > cat <<EOF |
+-- > some here doc
+-- > EOF
+-- > cmd
+--
+-- Note the @|@ at the end of the first line: If we were simply pretty printing the @cat@ command we had no idea where to insert the pipe symbol.
+-- And that's the purpose of BashDoc: We store possible suffixes to such lines, commands and the here documents attached to them separately and do the concatenation in the Semigroup instance of BashDoc.
+data BashDoc ann = BashDoc
+    (Doc ann) -- ^ The head
+    (Doc ann) -- ^ The tail
+    [Redir]   -- ^ Collected here documents
 
 instance Eq ann => Eq (BashDoc ann) where
     BashDoc h1 t1 hds1 == BashDoc h2 t2 hds2 = layoutCompact h1 == layoutCompact h2 && layoutCompact t1 == layoutCompact t2 && hds1 == hds2
