@@ -32,6 +32,7 @@ import Prelude hiding (Word)
 
 import Data.Data        (Data)
 import Data.List        (intersperse)
+import Data.Semigroup   (Semigroup(..))
 import Data.Typeable    (Typeable)
 import GHC.Generics     (Generic)
 import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, layoutCompact, punctuate, vcat)
