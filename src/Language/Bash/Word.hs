@@ -29,6 +29,7 @@ module Language.Bash.Word
 import Prelude hiding (Word)
 
 import           Data.Data        (Data)
+import           Data.Monoid      ((<>))
 import           Data.Typeable    (Typeable)
 import           GHC.Generics     (Generic)
 import           Data.Text.Prettyprint.Doc (Doc, Pretty(..), hcat, hsep, layoutCompact)
