@@ -2,6 +2,7 @@ module Main (main) where
 
 import           Control.Applicative ((<$>))
 import           Control.Monad
+import           Data.Monoid              ((<>))
 import           System.Process           (readProcess)
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic  as QCM
