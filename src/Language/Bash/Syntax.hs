@@ -73,6 +73,7 @@ instance Show (BashDoc ann) where
 
 instance Monoid (BashDoc ann) where
     mempty = BashDoc mempty mempty []
+    mappend = (<>)
 
 instance Semigroup (BashDoc ann) where
     BashDoc Empty Empty [] <> y = y
