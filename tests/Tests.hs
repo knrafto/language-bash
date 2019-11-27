@@ -164,12 +164,12 @@ unittests = testGroup "Unit tests"
         y = BashDoc (pretty "head y") (pretty "tail y") [Heredoc Here "Y" False (stringToWord "y")]
         z = BashDoc (pretty "head z") (pretty "tail z") [Heredoc Here "Z" False (stringToWord "z")]
     ((x <> y) <> z) @?= (x <> (y <> z))
-  , testCase "prettHeredocs 0" $ do
+  , testCase "prettyHeredocs 0" $ do
     renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs []) @?= ""
-  , testCase "prettHeredocs 1" $ do
+  , testCase "prettyHeredocs 1" $ do
     let hd1 = Heredoc Here "EOF1" False (stringToWord "here 1\n")
     renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs [hd1]) @?= "here 1\nEOF1"
-  , testCase "prettHeredocs 2" $ do
+  , testCase "prettyHeredocs 2" $ do
     let hd1 = Heredoc Here "EOF1" False (stringToWord "here 1\n")
         hd2 = Heredoc Here "EOF2" False (stringToWord "here 2\n")
     renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs [hd1, hd2]) @?= "here 1\nEOF1\nhere 2\nEOF2"
