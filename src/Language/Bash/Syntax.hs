@@ -71,15 +71,15 @@ instance Eq ann => Eq (BashDoc ann) where
 instance Show (BashDoc ann) where
     show (BashDoc h t hds) = "BashDoc " ++ show (show h) ++ " " ++ show (show t) ++ " " ++ show hds
 
-instance Monoid (BashDoc ann) where
-    mempty = BashDoc mempty mempty []
-    mappend = (<>)
-
 instance Semigroup (BashDoc ann) where
     BashDoc Empty Empty [] <> y = y
     x <> BashDoc Empty Empty [] = x
     BashDoc h1 t1 []   <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 <++> t2) hds2
     BashDoc h1 t1 hds1 <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 $++$ prettyHeredocs hds1 $++$ t2) hds2
+
+instance Monoid (BashDoc ann) where
+    mempty = BashDoc mempty mempty []
+    mappend = (<>)
 
 docOp :: Doc ann -> BashDoc ann
 docOp xs = BashDoc xs mempty []
