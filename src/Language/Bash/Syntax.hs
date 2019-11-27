@@ -61,8 +61,8 @@ import Language.Bash.Word
 -- Note the @|@ at the end of the first line: If we were simply pretty printing the @cat@ command we had no idea where to insert the pipe symbol.
 -- And that's the purpose of BashDoc: We store possible suffixes to such lines, commands and the here documents attached to them separately and do the concatenation in the Semigroup instance of BashDoc.
 data BashDoc ann = BashDoc
-    (Doc ann) -- ^ The head
-    (Doc ann) -- ^ The tail
+    (Doc ann) -- ^ The head: This is stuff we want to put before the line break and here documents
+    (Doc ann) -- ^ The tail: Everthing which follows the here documents
     [Redir]   -- ^ Collected here documents
 
 instance Eq ann => Eq (BashDoc ann) where
