@@ -17,6 +17,7 @@ import           Data.Text.Prettyprint.Doc.Render.String (renderString)
 
 
 import qualified Language.Bash.Parse      as Parse
+import           Language.Bash.Pretty     (($+$))
 import           Language.Bash.Syntax
 import qualified Language.Bash.Cond       as Cond
 import           Language.Bash.Word
@@ -160,9 +161,9 @@ unittests = testGroup "Unit tests"
                   hereDocument = stringToWord "comment\n"}])
   , testCase "BashDoc associates" $ do
     let x :: BashDoc ()
-        x = BashDoc (pretty "head x") (pretty "tail x") [Heredoc Here "X" False (stringToWord "x")]
-        y = BashDoc (pretty "head y") (pretty "tail y") [Heredoc Here "Y" False (stringToWord "y")]
-        z = BashDoc (pretty "head z") (pretty "tail z") [Heredoc Here "Z" False (stringToWord "z")]
+        x = BashDoc (pretty "head x") (pretty "tail x") (pretty "<<X" $+$ pretty "x" $+$ pretty "X")
+        y = BashDoc (pretty "head y") (pretty "tail y") (pretty "<<Y" $+$ pretty "y" $+$ pretty "Y")
+        z = BashDoc (pretty "head z") (pretty "tail z") (pretty "<<Z" $+$ pretty "z" $+$ pretty "Z")
     ((x <> y) <> z) @?= (x <> (y <> z))
   , testCase "prettyHeredocs 0" $ do
     renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs []) @?= ""

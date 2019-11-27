@@ -63,29 +63,29 @@ import Language.Bash.Word
 data BashDoc ann = BashDoc
     (Doc ann) -- ^ The head: This is stuff we want to put before the line break and here documents
     (Doc ann) -- ^ The tail: Everthing which follows the here documents
-    [Redir]   -- ^ Collected here documents
+    (Doc ann) -- ^ Collected here documents
 
 instance Eq ann => Eq (BashDoc ann) where
-    BashDoc h1 t1 hds1 == BashDoc h2 t2 hds2 = layoutCompact h1 == layoutCompact h2 && layoutCompact t1 == layoutCompact t2 && hds1 == hds2
+    BashDoc h1 t1 hds1 == BashDoc h2 t2 hds2 = layoutCompact h1 == layoutCompact h2 && layoutCompact t1 == layoutCompact t2 && layoutCompact hds1 == layoutCompact hds2
 
 instance Show (BashDoc ann) where
     show (BashDoc h t hds) = "BashDoc " ++ show (show h) ++ " " ++ show (show t) ++ " " ++ show hds
 
 instance Semigroup (BashDoc ann) where
-    BashDoc Empty Empty [] <> y = y
-    x <> BashDoc Empty Empty [] = x
-    BashDoc h1 t1 []   <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 <++> t2) hds2
-    BashDoc h1 t1 hds1 <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 $++$ prettyHeredocs hds1 $++$ t2) hds2
+    BashDoc Empty Empty Empty <> y = y
+    x <> BashDoc Empty Empty Empty = x
+    BashDoc h1 t1 Empty <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 <++> t2) hds2
+    BashDoc h1 t1 hds1  <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 $++$ hds1 $++$ t2) hds2
 
 instance Monoid (BashDoc ann) where
-    mempty = BashDoc mempty mempty []
+    mempty = BashDoc mempty mempty mempty
     mappend = (<>)
 
 docOp :: Doc ann -> BashDoc ann
-docOp xs = BashDoc xs mempty []
+docOp xs = BashDoc xs mempty mempty
 
 prettyBashDoc :: BashDoc ann -> Doc ann
-prettyBashDoc (BashDoc h t hds) = h <++> t $++$ prettyHeredocs hds
+prettyBashDoc (BashDoc h t hds) = h <++> t $++$ hds
 
 -- | A utility class for pretty printing without heredocs
 class ToBashDoc a where
@@ -114,7 +114,7 @@ instance Pretty Command where
     pretty = prettyBashDoc . toBashDoc
 
 instance ToBashDoc Command where
-    toBashDoc (Command c rs) = BashDoc mempty (pretty c <++> pretty rs) (filter isHeredoc rs)
+    toBashDoc (Command c rs) = BashDoc mempty (pretty c <++> pretty rs) (prettyHeredocs $ filter isHeredoc rs)
         where
             isHeredoc Heredoc{..} = True
             isHeredoc _ = False
@@ -384,7 +384,7 @@ instance ToBashDoc Pipeline where
         timedPosix' = if timedPosix then "-p"   else mempty
         inverted'   = if inverted   then "!"    else mempty
         space       = if timed || timedPosix || inverted then " " else mempty
-        prefix = BashDoc mempty (timed' <++> timedPosix' <++> inverted' <> space) []
+        prefix = BashDoc mempty (timed' <++> timedPosix' <++> inverted' <> space) mempty
         in prefix <> mconcat (intersperse (docOp " |") (map toBashDoc commands))
 
 -- | An assignment.
