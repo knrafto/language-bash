@@ -39,10 +39,6 @@ Empty <++> y     = y
 x     <++> Empty = x
 x     <++> y     = x <+> y
 
-isEmpty :: Doc ann -> Bool
-isEmpty Empty = True
-isEmpty _ = False
-
 -- | Pretty-print to a 'String'.
 prettyText :: Pretty a => a -> String
 prettyText = renderString . layoutPretty defaultLayoutOptions . pretty
