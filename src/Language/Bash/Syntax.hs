@@ -159,7 +159,7 @@ data ShellCommand
 
 instance Pretty ShellCommand where
     pretty (SimpleCommand as ws)  = pretty as <++> pretty ws
-    pretty (AssignBuiltin w args) = pretty w <++> pretty args
+    pretty (AssignBuiltin w args) = pretty w <++> hsep (map (either pretty pretty) args)
     pretty (FunctionDef name l) =
         pretty name <+> "()" $+$ pretty (Group l)
     pretty (Coproc name c) =

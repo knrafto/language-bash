@@ -6,9 +6,6 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Internal
 import Data.Text.Prettyprint.Doc.Render.String
 
-instance (Pretty a, Pretty b) => Pretty (Either a b) where
-    pretty = either pretty pretty
-
 -- | @x $+$ y@ concatenates @x@ and @y@ with a 'line' in between
 ($+$) :: Doc ann -> Doc ann -> Doc ann
 x $+$ y = x <> line <> y
