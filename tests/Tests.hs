@@ -2,7 +2,6 @@ module Main (main) where
 
 import           Control.Applicative ((<$>))
 import           Control.Monad
-import           Data.Monoid              ((<>))
 import           System.Process           (readProcess)
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic  as QCM
@@ -12,12 +11,9 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.ExpectedFailure (expectFail)
 import           Text.Parsec              (parse)
 import           Text.Parsec.Error (ParseError)
-import           Data.Text.Prettyprint.Doc (defaultLayoutOptions, layoutPretty, pretty)
-import           Data.Text.Prettyprint.Doc.Render.String (renderString)
 
 
 import qualified Language.Bash.Parse      as Parse
-import           Language.Bash.Pretty     (($+$))
 import           Language.Bash.Syntax
 import qualified Language.Bash.Cond       as Cond
 import           Language.Bash.Word
@@ -159,21 +155,6 @@ unittests = testGroup "Unit tests"
                   heredocDelim = "EOF",
                   heredocDelimQuoted = False,
                   hereDocument = stringToWord "comment\n"}])
-  , testCase "BashDoc associates" $ do
-    let x :: BashDoc ()
-        x = BashDoc (pretty "head x") (pretty "tail x") (pretty "<<X" $+$ pretty "x" $+$ pretty "X")
-        y = BashDoc (pretty "head y") (pretty "tail y") (pretty "<<Y" $+$ pretty "y" $+$ pretty "Y")
-        z = BashDoc (pretty "head z") (pretty "tail z") (pretty "<<Z" $+$ pretty "z" $+$ pretty "Z")
-    ((x <> y) <> z) @?= (x <> (y <> z))
-  , testCase "prettyHeredocs 0" $ do
-    renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs []) @?= ""
-  , testCase "prettyHeredocs 1" $ do
-    let hd1 = Heredoc Here "EOF1" False (stringToWord "here 1\n")
-    renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs [hd1]) @?= "here 1\nEOF1"
-  , testCase "prettyHeredocs 2" $ do
-    let hd1 = Heredoc Here "EOF1" False (stringToWord "here 1\n")
-        hd2 = Heredoc Here "EOF2" False (stringToWord "here 2\n")
-    renderString (layoutPretty defaultLayoutOptions $ prettyHeredocs [hd1, hd2]) @?= "here 1\nEOF1\nhere 2\nEOF2"
   ]
 
 failingtests :: TestTree

@@ -58,7 +58,6 @@ test-suite tests
     base,
     language-bash,
     parsec,
-    prettyprinter,
     process,
     QuickCheck,
     tasty,

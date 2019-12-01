@@ -23,9 +23,6 @@ module Language.Bash.Syntax
     , Assign(..)
     , AssignOp(..)
     , RValue(..)
-      -- * Internal
-    , BashDoc(..)
-    , prettyHeredocs
     ) where
 
 import Prelude hiding (Word)
