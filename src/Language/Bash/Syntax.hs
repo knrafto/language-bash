@@ -32,7 +32,7 @@ import Data.List        (intersperse)
 import Data.Semigroup   (Semigroup(..))
 import Data.Typeable    (Typeable)
 import GHC.Generics     (Generic)
-import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, punctuate, vcat)
+import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, nest, nesting, punctuate, vcat)
 import Data.Text.Prettyprint.Doc.Internal (Doc(Empty))
 
 import Language.Bash.Cond     (CondExpr)
@@ -66,7 +66,9 @@ instance Semigroup (BashDoc ann) where
     BashDoc Empty Empty Empty <> y = y
     x <> BashDoc Empty Empty Empty = x
     BashDoc h1 t1 Empty <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 <++> t2) hds2
-    BashDoc h1 t1 hds1  <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> h2 $++$ hds1 $++$ t2) hds2
+    BashDoc h1 t1 hds1  <> BashDoc h2 t2 hds2 = BashDoc h1 (t1 <> noIndent (h2 $++$ hds1) $++$ t2) hds2
+        where
+            noIndent doc = nesting $ \i -> nest (- i) doc
 
 instance Monoid (BashDoc ann) where
     mempty = BashDoc mempty mempty mempty
