@@ -186,7 +186,7 @@ instance Pretty ShellCommand where
     pretty (ArithFor s l) =
         ppCond "for" ("((" <> pretty s <> "))") "do" (indent' $ pretty l) "done"
     pretty (Select w ws l) =
-        ppCond "select" (pretty w <+> pretty ws <> ";") "do" (indent' $ pretty l) "done"
+        ppCond "select" (pretty w <++> pretty ws <> ";") "do" (indent' $ pretty l) "done"
     pretty (Case w cs) =
         ppCond "case" (pretty w) "in" (vcat $ map (indent' . pretty) cs) "esac"
     pretty (If p t f) =
