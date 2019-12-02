@@ -23,10 +23,3 @@ EOF
         true
     done
 done
-
-while true <<EOF
-here doc
-EOF
-do
-    true
-done
