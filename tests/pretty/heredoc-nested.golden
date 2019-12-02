@@ -1,5 +1,5 @@
 for x in true; do
-        cat <<EOF;
+    cat <<EOF;
 here doc
 EOF
 done;
@@ -12,7 +12,7 @@ EOF
     done;
 done;
 while true; do
-        cat <<EOF;
+    cat <<EOF;
 here doc
 EOF
 done;

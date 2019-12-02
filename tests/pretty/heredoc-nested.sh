@@ -1,5 +1,5 @@
 for x in true; do cat <<EOF; done
-Here
+here doc
 EOF
 
 for x in true; do
@@ -12,7 +12,7 @@ EOF
 done
 
 while true; do cat <<EOF; done
-Here
+here doc
 EOF
 
 while true; do
