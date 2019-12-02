@@ -32,7 +32,7 @@ import Data.List        (intersperse)
 import Data.Semigroup   (Semigroup(..))
 import Data.Typeable    (Typeable)
 import GHC.Generics     (Generic)
-import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, layoutCompact, punctuate, vcat)
+import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, punctuate, vcat)
 import Data.Text.Prettyprint.Doc.Internal (Doc(Empty))
 
 import Language.Bash.Cond     (CondExpr)
@@ -61,12 +61,6 @@ data BashDoc ann = BashDoc
     (Doc ann) -- ^ The head: This is stuff we want to put before the line break and here documents
     (Doc ann) -- ^ The tail: Everthing which follows the here documents
     (Doc ann) -- ^ Collected here documents
-
-instance Eq ann => Eq (BashDoc ann) where
-    BashDoc h1 t1 hds1 == BashDoc h2 t2 hds2 = layoutCompact h1 == layoutCompact h2 && layoutCompact t1 == layoutCompact t2 && layoutCompact hds1 == layoutCompact hds2
-
-instance Show (BashDoc ann) where
-    show (BashDoc h t hds) = "BashDoc " ++ show (show h) ++ " " ++ show (show t) ++ " " ++ show hds
 
 instance Semigroup (BashDoc ann) where
     BashDoc Empty Empty Empty <> y = y
