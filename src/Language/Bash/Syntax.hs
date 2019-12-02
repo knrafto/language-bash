@@ -95,9 +95,25 @@ prettyHeredocs rs = mconcat $ intersperse hardline $ map prettyHeredoc rs
 indent' :: Doc ann -> Doc ann
 indent' = indent 4
 
--- | Render a @do...done@ block.
-doDone :: Doc ann -> Doc ann -> Doc ann
-doDone header body = header <+> "do" $+$ indent' body $+$ "done"
+-- | Render a conditional command.
+ppCond :: Doc ann -> Doc ann -> Doc ann -> Doc ann -> Doc ann -> Doc ann
+ppCond pre cond bs block be = pre <+> cond <+> bs $+$ block $+$ be
+
+-- | Render a conditional command whose condition is a list of statements.
+ppCondList :: Doc ann -> List -> Doc ann -> Doc ann -> Doc ann -> Doc ann
+ppCondList pre l bs block be
+    | hasHeredoc l = pre <+> pretty l $+$ bs $+$ block $+$ be
+    | otherwise    = ppCond pre (pretty l) bs block be
+
+-- | Does the last statement in a list have a here doc attached?
+hasHeredoc :: List -> Bool
+hasHeredoc (List []) = False
+hasHeredoc (List xs) = let
+    Statement l _ = last xs
+    BashDoc _ _ hds = toBashDoc l
+    in case hds of
+        Empty -> False
+        _     -> True
 
 -- | A Bash command with redirections.
 data Command = Command ShellCommand [Redir]
@@ -166,21 +182,22 @@ instance Pretty ShellCommand where
     pretty (Cond e) =
         "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
-        doDone ("for" <+> pretty w <+> pretty ws <> ";") (pretty l)
+        ppCond "for" (pretty w <+> pretty ws <> ";") "do" (indent' $ pretty l) "done"
     pretty (ArithFor s l) =
-        doDone ("for" <+> "((" <> pretty s <> "))") (pretty l)
+        ppCond "for" ("((" <> pretty s <> "))") "do" (indent' $ pretty l) "done"
     pretty (Select w ws l) =
-        doDone ("select" <+> pretty w <+> pretty ws <> ";") (pretty l)
+        ppCond "select" (pretty w <+> pretty ws <> ";") "do" (indent' $ pretty l) "done"
     pretty (Case w cs) =
-        "case" <+> pretty w <+> "in" $+$ (vcat $ map (indent' . pretty) cs) $+$ "esac"
+        ppCond "case" (pretty w) "in" (vcat $ map (indent' . pretty) cs) "esac"
     pretty (If p t f) =
-        "if" <+> pretty p <+> "then" $+$ indent' (pretty t) $+$
-        (maybe mempty (\l -> "else" $+$ indent' (pretty l)) f) $+$
+        ppCondList "if" p "then"
+        (indent' (pretty t) $++$ (maybe mempty (\l -> "else" $+$ indent' (pretty l)) f)
+        )
         "fi"
     pretty (Until p l) =
-        doDone ("until" <+> pretty p) (pretty l)
+        ppCondList "until" p "do" (indent' $ pretty l) "done"
     pretty (While p l) =
-        doDone ("while" <+> pretty p) (pretty l)
+        ppCondList "while" p "do" (indent' $ pretty l) "done"
 
 -- | A word list or @\"$\@\"@.
 data WordList
