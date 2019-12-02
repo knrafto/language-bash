@@ -334,8 +334,7 @@ instance Pretty Statement where
         f a@(Statement _ Asynchronous) b = pretty a <++> b
 
 instance ToBashDoc Statement where
-    toBashDoc (Statement l Sequential)   = toBashDoc l <> docOp ";"
-    toBashDoc (Statement l Asynchronous) = toBashDoc l <> docOp "&"
+    toBashDoc (Statement l lt) = toBashDoc l <> toBashDoc lt
 
 -- | A statement terminator.
 data ListTerm
@@ -352,6 +351,10 @@ instance Operator ListTerm where
 
 instance Pretty ListTerm where
     pretty = prettyOperator
+
+instance ToBashDoc ListTerm where
+    toBashDoc Sequential = docOp ";"
+    toBashDoc Asynchronous = docOp "&"
 
 -- | A right-associative list of pipelines.
 data AndOr
