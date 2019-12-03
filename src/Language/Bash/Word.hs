@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DeriveDataTypeable
   , DeriveGeneric
+  , FlexibleInstances
   , OverloadedStrings
   , RecordWildCards
   , TypeSynonymInstances
@@ -25,15 +26,16 @@ module Language.Bash.Word
     , unquote
     ) where
 
-import Prelude hiding ((<>), Word)
+import Prelude hiding (Word)
 
 import           Data.Data        (Data)
+import           Data.Monoid      ((<>))
 import           Data.Typeable    (Typeable)
 import           GHC.Generics     (Generic)
-import           Text.PrettyPrint
+import           Data.Text.Prettyprint.Doc (Doc, Pretty(..), hcat, hsep, layoutCompact)
+import           Data.Text.Prettyprint.Doc.Render.String (renderString)
 
 import           Language.Bash.Operator
-import           Language.Bash.Pretty
 
 -- | A Bash word, broken up into logical spans.
 type Word = [Span]
@@ -66,28 +68,31 @@ data Span
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Span where
-    pretty (Char c)           = char c
-    pretty (Escape c)         = "\\" <> char c
+    pretty (Char c)           = pretty c
+    pretty (Escape c)         = "\\" <> pretty c
     pretty (Single w)         = "\'" <> pretty w <> "\'"
     pretty (Double w)         = "\"" <> pretty w <> "\""
     pretty (ANSIC w)          = "$\'" <> pretty w <> "\'"
     pretty (Locale w)         = "$\"" <> pretty w <> "\""
     pretty (Backquote w)      = "`" <> pretty w <> "`"
     pretty (ParamSubst s)     = pretty s
-    pretty (ArithSubst s)     = "$((" <> text s <> "))"
-    pretty (CommandSubst s)   = "$(" <> text s <> ")"
-    pretty (ProcessSubst c s) = pretty c <> "(" <> text s <> ")"
+    pretty (ArithSubst s)     = "$((" <> pretty s <> "))"
+    pretty (CommandSubst s)   = "$(" <> pretty s <> ")"
+    pretty (ProcessSubst c s) = pretty c <> "(" <> pretty s <> ")"
 
     prettyList = hcat . map pretty
+
+instance {-# OVERLAPS #-} Pretty [Word] where
+    pretty = hsep . map pretty
 
 -- | A parameter name an optional subscript.
 data Parameter = Parameter String (Maybe Word)
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
 instance Pretty Parameter where
-    pretty (Parameter s sub) = text s <> subscript sub
+    pretty (Parameter s sub) = pretty s <> subscript sub
       where
-        subscript Nothing  = empty
+        subscript Nothing  = mempty
         subscript (Just w) = "[" <> pretty w <> "]"
 
 -- | A parameter substitution.
@@ -163,33 +168,33 @@ data ParamSubst
         }
     deriving (Data, Eq, Read, Show, Typeable, Generic)
 
-prettyParameter :: Bool -> Parameter -> Doc -> Doc
+prettyParameter :: Bool -> Parameter -> Doc ann -> Doc ann
 prettyParameter bang param suffix =
-    "${" <> (if bang then "!" else empty) <> pretty param <> suffix <> "}"
+    "${" <> (if bang then "!" else mempty) <> pretty param <> suffix <> "}"
 
-twiceWhen :: Bool -> Doc -> Doc
+twiceWhen :: Bool -> Doc ann -> Doc ann
 twiceWhen False d = d
 twiceWhen True  d = d <> d
 
 instance Pretty ParamSubst where
     pretty Bare{..}       = "$" <> pretty parameter
-    pretty Brace{..}      = prettyParameter indirect parameter empty
+    pretty Brace{..}      = prettyParameter indirect parameter mempty
     pretty Alt{..}        = prettyParameter indirect parameter $
-        (if testNull then ":" else empty) <>
+        (if testNull then ":" else mempty) <>
         pretty altOp <>
         pretty altWord
     pretty Substring{..}  = prettyParameter indirect parameter $
         ":" <> pretty subOffset <>
-        (if null subLength then empty else ":") <> pretty subLength
-    pretty Prefix{..}     = "${!" <> text prefix <> char modifier <> "}"
-    pretty Indices{..}    = prettyParameter True parameter empty
+        (if null subLength then mempty else ":") <> pretty subLength
+    pretty Prefix{..}     = "${!" <> pretty prefix <> pretty modifier <> "}"
+    pretty Indices{..}    = prettyParameter True parameter mempty
     pretty Length{..}     = "${#" <> pretty parameter <> "}"
     pretty Delete{..}     = prettyParameter indirect parameter $
         twiceWhen longest (pretty deleteDirection) <>
         pretty pattern
     pretty Replace{..}    = prettyParameter indirect parameter $
         "/" <>
-        (if replaceAll then "/" else empty) <>
+        (if replaceAll then "/" else mempty) <>
         pretty replaceDirection <>
         pretty pattern <>
         "/" <>
@@ -260,12 +265,12 @@ wordToString = traverse spanToChar
 
 -- | Remove all quoting characters from a word.
 unquote :: Word -> String
-unquote = render . unquoteWord
+unquote = renderString . layoutCompact . unquoteWord
   where
     unquoteWord = hcat . map unquoteSpan
 
-    unquoteSpan (Char c)   = char c
-    unquoteSpan (Escape c) = char c
+    unquoteSpan (Char c)   = pretty c
+    unquoteSpan (Escape c) = pretty c
     unquoteSpan (Single w) = unquoteWord w
     unquoteSpan (Double w) = unquoteWord w
     unquoteSpan (ANSIC w)  = unquoteWord w
