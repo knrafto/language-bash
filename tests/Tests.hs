@@ -62,8 +62,8 @@ prop_expandsLikeBash = monadicIO $ forAllM braceExpr $ \str -> do
 properties :: TestTree
 properties = testGroup "Properties" [testProperty "brace expansion" prop_expandsLikeBash]
 
-discoverPretty :: FilePath -> IO TestTree
-discoverPretty fp = do
+discoverPrettyTests :: FilePath -> IO TestTree
+discoverPrettyTests fp = do
     fs <- listDirectory fp
     let shFs = filter (isExtensionOf "sh") fs
     return $ testGroup "Pretty printing" $ map (\shFn -> testPretty shFn (fp </> shFn)) shFs
@@ -184,7 +184,7 @@ failingtests = testGroup "Failing tests" (map expectFail
 
 main :: IO ()
 main = do
-    pptests <- discoverPretty "tests/pretty"
+    pptests <- discoverPrettyTests "tests/pretty"
     defaultMain $ testGroup "Tests"
         [ properties
         , unittests
