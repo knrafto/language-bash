@@ -3,7 +3,7 @@ module Main (main) where
 import           Control.Applicative ((<$>))
 import           Control.Monad
 import           System.Directory (listDirectory)
-import           System.FilePath ((</>), (-<.>), isExtensionOf)
+import           System.FilePath ((</>), (-<.>), takeExtension)
 import           System.Process           (readProcess)
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic  as QCM
@@ -65,7 +65,7 @@ properties = testGroup "Properties" [testProperty "brace expansion" prop_expands
 discoverPrettyTests :: FilePath -> IO TestTree
 discoverPrettyTests fp = do
     fs <- listDirectory fp
-    let shFs = filter (isExtensionOf "sh") fs
+    let shFs = filter (\fp' -> takeExtension fp' == ".sh") fs
     return $ testGroup "Pretty printing" $ map (\shFn -> testPretty shFn (fp </> shFn)) shFs
 
 testPretty :: TestName -> FilePath -> TestTree
