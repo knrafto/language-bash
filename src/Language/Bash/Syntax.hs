@@ -95,15 +95,15 @@ prettyHeredocs rs = mconcat $ intersperse hardline $ map prettyHeredoc rs
 indent' :: Doc ann -> Doc ann
 indent' = indent 4
 
--- | Render a conditional command.
-ppCond :: Doc ann -> Doc ann -> Doc ann -> Doc ann -> Doc ann -> Doc ann
-ppCond pre cond bs block be = pre <+> cond <+> bs $+$ block $+$ be
+-- | Render a conditional command with a block.
+prettyBlock :: Doc ann -> Doc ann -> Doc ann -> Doc ann -> Doc ann -> Doc ann
+prettyBlock pre cond bs block be = pre <+> cond <+> bs $+$ block $+$ be
 
--- | Render a conditional command whose condition is a list of statements.
-ppCondList :: Doc ann -> List -> Doc ann -> Doc ann -> Doc ann -> Doc ann
-ppCondList pre l bs block be
+-- | Render a conditional command with a block whose condition is a list of statements.
+prettyBlockList :: Doc ann -> List -> Doc ann -> Doc ann -> Doc ann -> Doc ann
+prettyBlockList pre l bs block be
     | hasHeredoc l = pre <+> pretty l $+$ bs $+$ block $+$ be
-    | otherwise    = ppCond pre (pretty l) bs block be
+    | otherwise    = prettyBlock pre (pretty l) bs block be
 
 -- | Does the last statement in a list have a here doc attached?
 hasHeredoc :: List -> Bool
@@ -182,22 +182,22 @@ instance Pretty ShellCommand where
     pretty (Cond e) =
         "[[" <+> pretty e <+> "]]"
     pretty (For w ws l) =
-        ppCond "for" (pretty w <+> pretty ws <> ";") "do" (indent' $ pretty l) "done"
+        prettyBlock "for" (pretty w <+> pretty ws <> ";") "do" (indent' $ pretty l) "done"
     pretty (ArithFor s l) =
-        ppCond "for" ("((" <> pretty s <> "))") "do" (indent' $ pretty l) "done"
+        prettyBlock "for" ("((" <> pretty s <> "))") "do" (indent' $ pretty l) "done"
     pretty (Select w ws l) =
-        ppCond "select" (pretty w <++> pretty ws <> ";") "do" (indent' $ pretty l) "done"
+        prettyBlock "select" (pretty w <++> pretty ws <> ";") "do" (indent' $ pretty l) "done"
     pretty (Case w cs) =
-        ppCond "case" (pretty w) "in" (vcat $ map (indent' . pretty) cs) "esac"
+        prettyBlock "case" (pretty w) "in" (vcat $ map (indent' . pretty) cs) "esac"
     pretty (If p t f) =
-        ppCondList "if" p "then"
+        prettyBlockList "if" p "then"
         (indent' (pretty t) $++$ (maybe mempty (\l -> "else" $+$ indent' (pretty l)) f)
         )
         "fi"
     pretty (Until p l) =
-        ppCondList "until" p "do" (indent' $ pretty l) "done"
+        prettyBlockList "until" p "do" (indent' $ pretty l) "done"
     pretty (While p l) =
-        ppCondList "while" p "do" (indent' $ pretty l) "done"
+        prettyBlockList "while" p "do" (indent' $ pretty l) "done"
 
 -- | A word list or @\"$\@\"@.
 data WordList
