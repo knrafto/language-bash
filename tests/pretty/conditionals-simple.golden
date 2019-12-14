@@ -1,0 +1,35 @@
+if true; then
+    true;
+fi;
+if true; then
+    true;
+else
+    if false; then
+        false;
+    fi;
+fi;
+if true; then
+    true;
+else
+    false;
+fi;
+if true; then
+    true;
+else
+    if false; then
+        false;
+    else
+        false;
+    fi;
+fi;
+case x in
+    x)
+        true;
+        ;;
+esac;
+select x; do
+    true;
+done;
+select x in y z; do
+    true;
+done;

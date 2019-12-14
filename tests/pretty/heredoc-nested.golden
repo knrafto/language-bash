@@ -1,0 +1,26 @@
+for x in true; do
+    cat <<EOF;
+here doc
+EOF
+done;
+for x in true; do
+    for y in true; do
+        cat <<EOF;
+here doc
+EOF
+        true;
+    done;
+done;
+while true; do
+    cat <<EOF;
+here doc
+EOF
+done;
+while true; do
+    while true; do
+        cat <<EOF;
+here doc
+EOF
+        true;
+    done;
+done;
