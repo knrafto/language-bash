@@ -10,7 +10,7 @@ build-type:         Simple
 cabal-version:      >= 1.8
 homepage:           http://github.com/knrafto/language-bash/
 bug-reports:        http://github.com/knrafto/language-bash/issues
-tested-with:        GHC == 7.10.1, GHC == 7.10.2, GHC == 8.0.2, GHC == 8.4.3
+tested-with:        GHC == 7.10.1, GHC == 7.10.2, GHC == 8.0.2, GHC == 8.4.3, GHC == 8.8.3
 synopsis:           Parsing and pretty-printing Bash shell scripts
 description:
     A library for parsing, pretty-printing, and manipulating
@@ -19,6 +19,9 @@ description:
 extra-source-files:
   .gitignore
   README.md
+  tests/pretty/*.golden
+  tests/pretty/*.out
+  tests/pretty/*.sh
 
 source-repository head
   type: git
