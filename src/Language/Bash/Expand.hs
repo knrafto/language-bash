@@ -12,11 +12,10 @@ import Prelude hiding (Word)
 import Control.Applicative
 import Control.Monad
 import Data.Char
-import Data.Monoid            ((<>))
 import Text.Parsec.Combinator hiding (optional, manyTill)
 import Text.Parsec.Prim       hiding ((<|>), many, token)
 import Text.Parsec.String     ()
-import Data.Text.Prettyprint.Doc (Pretty(..))
+import Prettyprinter          (Pretty(..))
 
 import Language.Bash.Pretty
 import Language.Bash.Word     hiding (prefix)

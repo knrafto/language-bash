@@ -29,11 +29,10 @@ import Prelude hiding (Word)
 
 import Data.Data        (Data)
 import Data.List        (intersperse)
-import Data.Semigroup   (Semigroup(..))
 import Data.Typeable    (Typeable)
 import GHC.Generics     (Generic)
-import Data.Text.Prettyprint.Doc (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, nest, nesting, punctuate, vcat)
-import Data.Text.Prettyprint.Doc.Internal (Doc(Empty))
+import Prettyprinter    (Doc, Pretty(..), (<+>), hardline, hcat, hsep, indent, nest, nesting, punctuate, vcat)
+import Prettyprinter.Internal.Type (Doc(Empty))
 
 import Language.Bash.Cond     (CondExpr)
 import Language.Bash.Operator
@@ -125,7 +124,7 @@ instance Pretty Command where
 instance ToBashDoc Command where
     toBashDoc (Command c rs) = BashDoc mempty (pretty c <++> pretty rs) (prettyHeredocs $ filter isHeredoc rs)
         where
-            isHeredoc Heredoc{..} = True
+            isHeredoc Heredoc{} = True
             isHeredoc _ = False
 
 -- | A Bash command.
