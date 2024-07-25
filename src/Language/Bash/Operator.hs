@@ -6,9 +6,9 @@ module Language.Bash.Operator
     , prettyOperator
     ) where
 
-import Control.Applicative
-import Data.Foldable
-import Data.Text.Prettyprint.Doc (Doc, pretty)
+import Control.Applicative (Alternative)
+import Data.Foldable (asum)
+import Prettyprinter (Doc, pretty)
 
 -- | String operators.
 class Eq a => Operator a where

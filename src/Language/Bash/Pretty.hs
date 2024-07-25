@@ -2,9 +2,9 @@
 -- used by the Bash builtin @declare -f@.
 module Language.Bash.Pretty where
 
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Internal
-import Data.Text.Prettyprint.Doc.Render.String
+import Prettyprinter
+import Prettyprinter.Internal.Type (Doc(Empty))
+import Prettyprinter.Render.String (renderString)
 
 -- | @x $+$ y@ concatenates @x@ and @y@ with a 'line' in between
 ($+$) :: Doc ann -> Doc ann -> Doc ann

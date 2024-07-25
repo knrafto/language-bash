@@ -22,7 +22,7 @@ import Data.Typeable          (Typeable)
 import GHC.Generics           (Generic)
 import Text.Parsec            hiding ((<|>), token)
 import Text.Parsec.Expr       hiding (Operator)
-import Data.Text.Prettyprint.Doc (Pretty(..), (<+>))
+import Prettyprinter          (Pretty(..), (<+>))
 
 import Language.Bash.Operator
 

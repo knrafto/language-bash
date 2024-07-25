@@ -10,7 +10,7 @@ build-type:         Simple
 cabal-version:      >= 1.8
 homepage:           http://github.com/knrafto/language-bash/
 bug-reports:        http://github.com/knrafto/language-bash/issues
-tested-with:        GHC == 7.10.1, GHC == 7.10.2, GHC == 8.0.2, GHC == 8.4.3, GHC == 8.8.3
+tested-with:        GHC == 8.4.3, GHC == 8.8.3, GHC == 9.4.8, GHC == 9.6.6
 synopsis:           Parsing and pretty-printing Bash shell scripts
 description:
     A library for parsing, pretty-printing, and manipulating
@@ -45,10 +45,16 @@ library
     Language.Bash.Parse.Internal
 
   build-depends:
-    base          >= 4.6 && < 5,
+    -- Notes on version bounds:
+    --
+    -- * base-4.11 is the first where Prelude re-exports Semigroup(s). This
+    --   version of base is bundled with 8.4.1.
+    -- * prettyprinter-1.7.0 is the first version where Prettyprinter module
+    --   hierarchy was introduced.
+    base          >= 4.11 && < 5,
     parsec        >= 3.0 && < 4.0,
-    prettyprinter >= 1.2 && < 2.0,
-    transformers  >= 0.2 && < 0.6
+    prettyprinter >= 1.7 && < 2.0,
+    transformers  >= 0.2 && < 0.7
 
   ghc-options: -Wall
 
