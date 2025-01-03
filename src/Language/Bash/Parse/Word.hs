@@ -48,7 +48,7 @@ upTo m p = go m
 upTo1 :: Alternative f => Int -> f a -> f [a]
 upTo1 n p = (:) <$> p <*> upTo (n - 1) p
 
--- | Parse a span until a delimeter.
+-- | Parse a span until a delimiter.
 spans
     :: Stream s m Char
     => [Char]              -- ^ Delimiters

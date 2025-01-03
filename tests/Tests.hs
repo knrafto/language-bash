@@ -188,6 +188,32 @@ unittests = testGroup "Unit tests"
                   heredocDelim = "EOF",
                   heredocDelimQuoted = False,
                   hereDocument = stringToWord "comment\n"}])
+  , testGroup "Issue #23 regression tests"
+    [ testCase "Empty document" $ do
+          let list = wrapCommand $ Command
+                  (SimpleCommand [] [stringToWord "command"])
+                  [ Heredoc
+                      { heredocOp = Here
+                      , heredocDelim = "EOF"
+                      , heredocDelimQuoted = False
+                      , hereDocument = []
+                      }
+                  ]
+              expected = "command <<EOF;\nEOF"
+          expected @=? prettyText list
+    , testCase "Non-empty document" $ do
+          let list = wrapCommand $ Command
+                  (SimpleCommand [] [stringToWord "command"])
+                  [ Heredoc
+                      { heredocOp = Here
+                      , heredocDelim = "EOF"
+                      , heredocDelimQuoted = False
+                      , hereDocument = stringToWord "here document"
+                      }
+                  ]
+              expected = "command <<EOF;\nhere document\nEOF"
+          expected @=? prettyText list
+    ]
   ]
 
 failingtests :: TestTree
