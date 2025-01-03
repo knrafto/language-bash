@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, GeneralizedNewtypeDeriving, OverloadedStrings, RecordWildCards, DeriveGeneric #-}
 -- | Shell script types.
 module Language.Bash.Syntax
     (
@@ -87,8 +87,13 @@ prettyHeredocs :: [Redir] -> Doc ann
 prettyHeredocs [] = mempty
 prettyHeredocs rs = mconcat $ intersperse hardline $ map prettyHeredoc rs
     where
-        prettyHeredoc Heredoc{..} = pretty hereDocument <> pretty heredocDelim
+        prettyHeredoc Heredoc{..} = pretty (ensureTrailingNewline hereDocument) <> pretty heredocDelim
         prettyHeredoc _ = mempty
+
+        ensureTrailingNewline [] = []
+        ensureTrailingNewline xs
+            | last xs == Char '\n' = xs
+            | otherwise = xs ++ [Char '\n']
 
 -- | Indent by 4 columns.
 indent' :: Doc ann -> Doc ann
@@ -315,7 +320,7 @@ instance Pretty HeredocOp where
 
 -- | A compound list of statements.
 newtype List = List [Statement]
-    deriving (Data, Eq, Read, Show, Typeable, Generic)
+    deriving (Data, Eq, Monoid, Read, Semigroup, Show, Typeable, Generic)
 
 instance Pretty List where
     pretty (List as) = pretty as
