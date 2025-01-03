@@ -365,6 +365,4 @@ operator ops = go ops <?> "operator"
 
     continue xs = do
         c <- anyChar
-        (c :) <$> go (prefix c xs)
-
-    prefix c = map tail . filter (\x -> not (null x) && head x == c)
+        (c :) <$> go (mapMaybe (stripPrefix [c]) xs)
