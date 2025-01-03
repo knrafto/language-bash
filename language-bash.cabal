@@ -20,7 +20,6 @@ tested-with:        GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.8, GHC == 9.4.8, GHC
 extra-source-files:
   README.md
   tests/pretty/*.golden
-  tests/pretty/*.out
   tests/pretty/*.sh
 
 source-repository head
