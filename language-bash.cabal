@@ -1,12 +1,12 @@
 cabal-version:      2.2
 name:               language-bash
-version:            0.10.0
+version:            0.11.0
 category:           Language
 license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Kyle Raftogianis
 maintainer:         Kyle Raftogianis <knrafto@gmail.com>
-copyright:          Copyright (c) 2013-2024 Kyle Raftogianis
+copyright:          Copyright (c) 2013-2025 Kyle Raftogianis
 build-type:         Simple
 homepage:           http://github.com/knrafto/language-bash/
 bug-reports:        http://github.com/knrafto/language-bash/issues
