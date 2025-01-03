@@ -87,8 +87,13 @@ prettyHeredocs :: [Redir] -> Doc ann
 prettyHeredocs [] = mempty
 prettyHeredocs rs = mconcat $ intersperse hardline $ map prettyHeredoc rs
     where
-        prettyHeredoc Heredoc{..} = pretty hereDocument <> pretty heredocDelim
+        prettyHeredoc Heredoc{..} = pretty (ensureTrailingNewline hereDocument) <> pretty heredocDelim
         prettyHeredoc _ = mempty
+
+        ensureTrailingNewline [] = []
+        ensureTrailingNewline xs
+            | last xs == Char '\n' = xs
+            | otherwise = xs ++ [Char '\n']
 
 -- | Indent by 4 columns.
 indent' :: Doc ann -> Doc ann
