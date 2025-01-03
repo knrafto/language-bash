@@ -1,0 +1,95 @@
+name: "main"
+
+on:
+  pull_request:
+    branches:
+      - "master"
+
+jobs:
+  generate-matrix:
+    name: "Generate matrix from cabal"
+    runs-on: ubuntu-latest
+    outputs: 
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Extract the tested GHC versions
+        id: set-matrix
+        uses: kleidukos/get-tested@v0.1.7.1
+        with:
+          cabal-file: language-bash.cabal
+          ubuntu-version: "latest"
+          version: 0.1.7.1
+
+  run:
+    name: ${{ matrix.ghc }} on ${{ matrix.os }}
+    needs: generate-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "Setup Haskell environment"
+        id: setup
+        uses: haskell-actions/setup@v2.7
+        with:
+          ghc-version: "${{ matrix.ghc }}"
+          cabal-update: true
+
+      - name: "Configure the build"
+        run: |
+          cabal configure --enable-tests --enable-benchmarks
+          cabal freeze
+          cabal build all --dry-run
+
+      - name: "Restore cached dependencies"
+        id: cache
+        uses: actions/cache/restore@v4
+        env:
+          key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-cabal-${{ steps.setup.outputs.cabal-version }}
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ env.key }}-plan-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: ${{ env.key }}-plan-
+
+      - name: "Install dependencies"
+        # If we had an exact cache hit, the dependencies will be up to date.
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cabal build all --only-dependencies
+
+      - name: "Save cached dependencies"
+        # Cache dependencies already here, so that we do not have to rebuild them should the subsequent steps fail.
+        # If we had an exact cache hit, trying to save the cache would error because of key clash.
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+      - name: "Build"
+        run: cabal build all
+
+      - name: "Run tests"
+        run: cabal test all
+
+      - name: "Check cabal file"
+        run: cabal check
+
+  # See https://github.com/orgs/community/discussions/26822#discussioncomment-8285141
+  # If you read this and know a better way to accomplish this: Please, file an issue!
+  results:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    name: "Final Results"
+    needs: [run]
+    steps:
+      - name: "Matrix builds succeed"
+        if: >-
+          ${{
+               contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled')
+            || contains(needs.*.result, 'skipped')
+          }}
+        run: exit 1
