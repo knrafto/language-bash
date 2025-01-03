@@ -10,14 +10,14 @@ copyright:          Copyright (c) 2013-2024 Kyle Raftogianis
 build-type:         Simple
 homepage:           http://github.com/knrafto/language-bash/
 bug-reports:        http://github.com/knrafto/language-bash/issues
-tested-with:        GHC == 8.4.3, GHC == 8.8.3, GHC == 9.4.8, GHC == 9.6.6
 synopsis:           Parsing and pretty-printing Bash shell scripts
 description:
     A library for parsing, pretty-printing, and manipulating
     Bash shell scripts.
 
+tested-with:        GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.8, GHC == 9.4.8, GHC == 9.6.6, GHC == 9.8.4, GHC == 9.10.1, GHC == 9.12.1
+
 extra-source-files:
-  .gitignore
   README.md
   tests/pretty/*.golden
   tests/pretty/*.out
