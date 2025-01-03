@@ -25,7 +25,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: git://github.com/knrafto/language-bash.git
+  location: https://github.com/knrafto/language-bash.git
 
 library
   default-language: Haskell2010
@@ -50,10 +50,11 @@ library
     --
     -- * base-4.11 is the first where Prelude re-exports Semigroup(s). This
     --   version of base is bundled with 8.4.1.
+    -- * parsec-3.1.17.0 is the first where Text.Parsec.Prim.many1 is defined.
     -- * prettyprinter-1.7.0 is the first version where Prettyprinter module
     --   hierarchy was introduced.
     base          >= 4.11 && < 5,
-    parsec        >= 3.0 && < 4.0,
+    parsec        >= 3.1.17 && < 4.0,
     prettyprinter >= 1.7 && < 2.0,
     transformers  >= 0.2 && < 0.7
 
