@@ -25,11 +25,11 @@ module Language.Bash.Parse.Builder
 
 import           Prelude                hiding (span)
 
-import           Control.Applicative    hiding (many)
-import qualified Control.Applicative    as Applicative
-import           Data.Monoid
+import           Control.Applicative    ((<|>))
+import           Data.Monoid            (Endo (..))
+import           Text.Parsec            (ParsecT, Stream)
 import qualified Text.Parsec.Char       as P
-import           Text.Parsec.Prim       hiding ((<|>), many)
+import qualified Text.Parsec.Prim       as P
 
 infixr 4 <+>
 
@@ -53,12 +53,12 @@ toString = flip appEndo ""
 (<+>) = liftA2 mappend
 
 -- | Concat zero or more monoidal results.
-many :: (Alternative f, Monoid a) => f a -> f a
-many = fmap mconcat . Applicative.many
+many :: Monoid a => ParsecT s u m a -> ParsecT s u m a
+many = fmap mconcat . P.many
 
 -- | Concat one or more monoidal results.
-many1 :: (Alternative f, Monoid a) => f a -> f a
-many1 = fmap mconcat . Applicative.some
+many1 :: Monoid a => ParsecT s u m a -> ParsecT s u m a
+many1 = fmap mconcat . P.many1
 
 -- | 'Builder' version of 'P.oneOf'.
 oneOf :: Stream s m Char => [Char] -> ParsecT s u m Builder
