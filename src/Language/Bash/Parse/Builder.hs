@@ -25,7 +25,7 @@ module Language.Bash.Parse.Builder
 
 import           Prelude                hiding (span)
 
-import           Control.Applicative    ((<|>))
+import           Control.Applicative    ((<|>), liftA2)
 import           Data.Monoid            (Endo (..))
 import           Text.Parsec            (ParsecT, Stream)
 import qualified Text.Parsec.Char       as P
