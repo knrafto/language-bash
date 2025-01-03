@@ -1,5 +1,7 @@
 dist/
 dist-newstyle/
+cabal.project.local
+cabal.bench.project.local
 .cabal-sandbox/
 cabal.sandbox.config
 *.o
