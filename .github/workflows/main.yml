@@ -30,7 +30,7 @@ jobs:
       matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
     steps:
       - name: "Checkout repository"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "Setup Haskell environment"
         id: setup
