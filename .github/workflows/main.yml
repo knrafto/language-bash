@@ -47,7 +47,7 @@ jobs:
 
       - name: "Restore cached dependencies"
         id: cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         env:
           key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-cabal-${{ steps.setup.outputs.cabal-version }}
         with:
@@ -64,7 +64,7 @@ jobs:
         # Cache dependencies already here, so that we do not have to rebuild them should the subsequent steps fail.
         # If we had an exact cache hit, trying to save the cache would error because of key clash.
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ steps.setup.outputs.cabal-store }}
           key: ${{ steps.cache.outputs.cache-primary-key }}
