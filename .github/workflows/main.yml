@@ -34,7 +34,7 @@ jobs:
 
       - name: "Setup Haskell environment"
         id: setup
-        uses: haskell-actions/setup@v2.7
+        uses: haskell-actions/setup@v2.10
         with:
           ghc-version: "${{ matrix.ghc }}"
           cabal-update: true
